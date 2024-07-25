@@ -2,7 +2,7 @@
 #define IO_H
 
 // This allows me to run this on an emulator
-// #define NO_FUJI
+//#define NO_FUJI
 
 #ifdef NO_FUJI
 
@@ -99,21 +99,21 @@ void add_time(FUJI_TIME *result, FUJI_TIME *time1, FUJI_TIME *add_time);
 
 bool time_reached(FUJI_TIME *wait_until);
 
-/*
-io_json_open
-- This function will open the website, switch to json mode and prepare for parsing
-  After calling this function you may use io_json_query
+    /*
+    io_json_open
+    - This function will open the website, switch to json mode and prepare for parsing
+      After calling this function you may use io_json_query
 
-Parameters
-  url: website to request the json information
+    Parameters
+      url: website to request the json information
 
-Returns
-    0: Success
-    1: Could not open website
-    2: Could not switch to json mode
-    3: Could not set parsing mode
-*/
-int io_json_open(char *url);
+    Returns
+        0: Success
+        1: Could not open website
+        2: Could not switch to json mode
+        3: Could not set parsing mode
+    */
+    int io_json_open(char *url);
 
 /*
 io_json_query

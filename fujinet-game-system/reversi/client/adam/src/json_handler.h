@@ -24,6 +24,9 @@ void set_name(char *name);
 void set_num_players(int count);
 bool refresh_data(void);
 void get_board(char *board_out, int size);
-int get_round(void);
+int get_turn(void);
+void get_player_name(int num, char *player);
+char get_player_color(int num);
+int get_active_player(void);
 
 #endif /* JSON_HANDLER */

@@ -41,6 +41,9 @@ int black_line = LINE_START;
 #define WHITE_START_X  0
 #define BLACK_START_X  25
 
+#define TURN_X 0
+#define TURN_Y 16
+
 
 #define CURSOR_TOP_LEFT      0
 #define CURSOR_MIDDLE_LEFT   1
@@ -72,8 +75,8 @@ int game_type;
 /* z88dk specific opt */
 #pragma printf = "%c %u"
 #ifdef SCCZ80
-	void prtbrd(char b[64], bool mefirst) __z88dk_fastcall;
-int prtscr(char b[64]) __z88dk_fastcall;
+	void prtbrd(char *b, bool mefirst, int turn) __z88dk_fastcall;
+int prtscr(char *b) __z88dk_fastcall;
 #endif
 
 
@@ -322,14 +325,15 @@ int cntbrd(char *b, char color)
 	return count;
 }
 
-void prtbrd(char *b, bool mefirst)
+void prtbrd(char *b, bool mefirst, int turn)
 {
 	unsigned int addr;
 	int x,y, pos;
 	char black_count[3], 
 	     white_count[3];
 
-	newbrd();
+	snprintf(black_count, "%2d", turn);
+	print(TURN_X, TURN_Y, black_count, false);
 
 	if (mefirst)
 	{
@@ -381,7 +385,7 @@ void prtbrd(char *b, bool mefirst)
 int main()
 {
 	char b[64];
-	int i;
+	int i,ap, turn;
 	char key;
 	char message[32];
 	int waiting;
@@ -391,10 +395,11 @@ int main()
 	bool game_in_progress = true;
 	char url[256];
 	FUJI_TIME adjust, future_time;
+	int timer=400;
 
 	memset(&adjust, 0, sizeof(FUJI_TIME));
 
-	adjust.second = 10;
+	adjust.second = 3;
 
 	for(i=0; i<sizeof(b); i++)
 		b[i] = EMPTY;
@@ -409,7 +414,6 @@ int main()
 
 	vdp_set_mode(mode_2);
 
-	
 
 	cprintf(
 
@@ -431,21 +435,22 @@ int main()
 
 	sound_mode_change();
 
-	smartkeys_display("1 Player\n  Local", "2 Player\n  Local", "  Host\n  Game", " Remote\n  Host", NULL, "  QUIT");
+	//smartkeys_display("1 Player\n  Local", "2 Player\n  Local", "  Host\n  Game", " Remote\n  Host", NULL, "  QUIT");
 
-	smartkeys_display(NULL, NULL, NULL, NULL, NULL, NULL);
+	//smartkeys_display(NULL, NULL, NULL, NULL, NULL, NULL);
 
 
-	//clrscr();
+	clrscr();
 
 	sound_chime();
 
 	vdp_color(BACKGROUND_COLOUR_GRAPHICS);
 	vdp_set_mode(mode_2);
 
+
 	strncpy2(url, "http://192.168.2.184:8080", sizeof(url));
 
-		do 
+	do 
 	{
 		sound_chime();
 
@@ -454,23 +459,63 @@ int main()
 		
 		reversi_init(url);
 		set_name(my_name);
-		set_table("bot2a");
+		set_table("bot1a");
+		refresh_data();
+		if (turn == 0)
+		{
+			newbrd();
+		}
 
-		prtbrd(b, mefirst);
+		get_player_name(0, my_name);
+		get_player_name(1, their_name);
+		turn = get_turn();
+
+		mefirst = (get_player_color(0) == BLACK);
+		prtbrd(b, mefirst, turn);
 		io_time(&future_time);
+		//printf("future time: %02d:%02d:%02d\n", future_time.hour, future_time.minute, future_time.second);
+		timer = 0;
 		while (game_in_progress)
 		{
-			if (time_reached(&future_time))
+			timer--;
+			if (timer <= 0)
 			{
-				sound_chime();
-				add_time(&future_time, &future_time, &adjust);
-				refresh_data();
-				get_board(b, sizeof(b));
+				timer = 400;
+				if (time_reached(&future_time))
+				{
 
-				game_in_progress = get_round() != 5;
-				
-				prtbrd(b, mefirst);
+					sound_chime();
+					add_time(&future_time, &future_time, &adjust);
+					refresh_data();
+					
+					turn = get_turn();
+					if (turn == 0)
+					{
+						newbrd();
+					}
+					get_board(b, sizeof(b));
+					ap = get_active_player();
+					prtbrd(b, mefirst, turn);
+					switch(ap)
+					{
+						case 0: 
+							sprintf(message, "%s'S TURN", my_name);
+							break;
+						case 1:
+							sprintf(message, "%s'S TURN", their_name);
+							break;
+					}
+					print_info(message);
+
+					//cprintf("\n%.64s", b);
+					//game_in_progress = get_turn() != 64;
+					
+				} else
+				{
+					//cprintf("Future Time:%02d:%02d:%02d\n", future_time.hour, future_time.minute, future_time.second);
+				}
 			}
+			csleep(1);
 		}
 
 	} while (game_in_progress);

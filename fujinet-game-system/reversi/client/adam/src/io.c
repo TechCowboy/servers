@@ -1,9 +1,11 @@
+#include <msx.h>
+#include <graphics.h>
+
 #include <stdbool.h>
 #include <eos.h>
 #include <string.h>
 #include <conio.h>
 #include "io.h"
-
 
 char *strncpy2(char *dest, char *src, size_t size)
 {
@@ -16,17 +18,19 @@ char *strncpy2(char *dest, char *src, size_t size)
 
 #ifdef NO_FUJI
 
-char dummy[1024];
+char dont_clear = false;
 
 unsigned char FAKE_eos_write_character_device(unsigned char dev, void *buf, unsigned short len)
 {
     FUJI_CMD *fc = (FUJI_CMD *)buf;
     FUJI_JSON_QUERY *jq = (FUJI_JSON_QUERY *)buf;
-    FUJI_TIME *ft = (FUJI_TIME *)dummy;
+    FUJI_TIME *ft = (FUJI_TIME *) response;
     FUJI_SET_CHANNEL *sc = (FUJI_SET_CHANNEL *)buf;
     static bool firstTime = true;
     static FUJI_TIME current;
     static FUJI_TIME adjust;
+    int i;
+    int r = rand() % 20;
 
     if ((dev == FUJI_DEV) || (dev == NET_DEV))
     {
@@ -38,9 +42,10 @@ unsigned char FAKE_eos_write_character_device(unsigned char dev, void *buf, unsi
             switch (fc->cmd)
             {
             case 0xD2:
-                // cprintf("Get Time");
+                //cprintf("Get Time\n");
                 if (firstTime)
                 {
+ 
                     firstTime = false;
 
                     current.century = 20;
@@ -51,14 +56,17 @@ unsigned char FAKE_eos_write_character_device(unsigned char dev, void *buf, unsi
                     current.minute = 50;
                     current.second = 00;
 
+                    srand(342);
+
                     memset(&adjust, 0, sizeof(adjust));
-                    adjust.second = 1;
+                    adjust.second = 10;
                 }
                 else
                 {
                     add_time(&current, &current, &adjust);
                 }
-                // memcpy(dummy, &current, sizeof(FUJI_TIME));
+                memcpy(response, &current, sizeof(FUJI_TIME));
+                csleep(400);
 
                 break;
             case 0xDB:
@@ -104,8 +112,47 @@ unsigned char FAKE_eos_write_character_device(unsigned char dev, void *buf, unsi
                 // csleep(DEBUG_DELAY);
                 break;
             case 'Q':
-                // cprintf("Query JSON '%s' \n", jq->query);
-                // csleep(DEBUG_DELAY);
+                
+                //clrscr();
+                //cprintf("Query JSON '%s' \n", jq->query);
+                
+                if (stricmp(jq->query, "/bd") == 0)
+                {
+                    
+                    memset(response, '\0', sizeof(response));
+                    
+                    for (i=0; i<64; i++)
+                    {
+                        r = rand();
+
+                        response[i] = ' ';
+
+                        if (r > 16384)
+                        {
+                            response[i] = 'W';
+                        } else
+                        {
+                            r = rand();
+                            if (r > 16384)
+                            {
+                                response[i] = 'B';
+                            }
+                        }
+                    }
+
+                    //cprintf("\nIO: ");
+                    //response[65] = '\0';
+                    //for (i = 0; i < 64; i++)
+                    //{
+                    //    cprintf("%c", response[i]);
+                    //}
+                    //cprintf("\n");
+                    //sound_negative_beep();
+                    //cprintf("\n----------------------------------\n");
+                    //csleep(DEBUG_DELAY);
+                
+                }
+
                 break;
             }
             break;
@@ -127,7 +174,7 @@ unsigned char FAKE_eos_read_character_device(unsigned char dev, void *buf, unsig
 
     if ((dev == FUJI_DEV) || (dev == NET_DEV))
     {
-        memcpy(buf, dummy, sizeof(len));
+        memcpy(buf, response, sizeof(len));
         return ACK;
     }
     else
@@ -138,7 +185,7 @@ unsigned char FAKE_eos_read_character_device(unsigned char dev, void *buf, unsig
 
 /*** CLOCK ****/
 
-int io_time(FUJI_TIME *time)
+int io_time(FUJI_TIME *fuji_time)
 {
     FUJI_CMD oc;
 
@@ -158,7 +205,9 @@ int io_time(FUJI_TIME *time)
         return 3; // did not get result
     }
 
-    memcpy(time, response, sizeof(time));
+    memcpy(fuji_time, response, sizeof(FUJI_TIME));
+    //cprintf("io_time: %02d:%02d:%02d\n", fuji_time->hour, fuji_time->minute, fuji_time->second);
+    //csleep(400);
     return 0;
 }
 
@@ -266,6 +315,11 @@ int io_json_query(char *element, char *data, int max_buffer_size)
     r = EOS_WRITE_CHARACTER_DEVICE(NET_DEV, (unsigned char *)qcm, sizeof(qcm));
     if (r != ACK)
     {
+
+        vdp_set_mode(mode_2);
+        clrscr();
+        printf("<<<%s>>> FAILED\n", element);
+        csleep(400);
         return 1; // did not ack query command
     }
 
