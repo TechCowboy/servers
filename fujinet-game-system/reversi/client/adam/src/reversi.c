@@ -42,7 +42,7 @@ int black_line = LINE_START;
 #define BLACK_START_X  25
 
 #define TURN_X 0
-#define TURN_Y 16
+#define TURN_Y 23
 
 
 #define CURSOR_TOP_LEFT      0
@@ -300,6 +300,144 @@ int print_black_line(char *message)
 	return 0;
 }
 
+char getmov_local(char *b, int *i, int *j, char my_color)
+{
+	int joy = 0;
+	int trig = 1;
+	//	int c;
+	long joytimer = 0;
+	int x, y;
+	char atari_output[32];
+	int old_i = -1, old_j = -1;
+
+	movsprite(*i, *j, MOVING_COLOR);
+
+	while (true)
+	{
+		joy = read_joystick(&trig);
+		if (joytimer > JOYSTICK_DELAY)
+		{
+			joytimer = 0;
+
+			joy = read_joystick(&trig);
+
+			if (joy & UP)
+				(*i)--;
+			if (joy & DOWN)
+				(*i)++;
+			if (joy & LEFT)
+				(*j)--;
+			if (joy & RIGHT)
+				(*j)++;
+		}
+		else
+			joytimer++;
+
+		// c = in_Inkey();
+		/*
+		c = 0;
+		switch(c)
+		{
+			case 'I':
+				(*y)--;
+				break;
+			case 'K':
+				(*y)++;
+				break;
+			case 'J':
+				(*x)--;
+				break;
+			case 'L':
+				(*x)++;
+				break;
+			case 13:
+				trig = 0;
+				break;
+			default:
+				break;
+		}
+*/
+		if (*j < 0)
+			*j = 7;
+
+		if (*j > 7)
+			*j = 0;
+
+		if (*i < 0)
+			*i = 7;
+
+		if (*i > 7)
+			*i = 0;
+
+		movsprite(*i, *j, MOVING_COLOR);
+		if ((old_i != *i) || (old_j != *j) || (trig == 0))
+		{
+			old_i = *i;
+			old_j = *j;
+
+			// SEND ACTION
+
+			if (trig == 0)
+			{
+				sound_chime();
+				sound_chime();
+			}
+		}
+
+		if (trig == 0)
+		{
+			movsprite(*i, *j, SELECTED_COLOR);
+/*
+			if (chkmov(b, my_color, *i, *j) > 0)
+			{
+				break;
+			}
+			else
+			{
+				print_info("***Illegal Move ***");
+				sound_negative_beep();
+			}
+*/
+		}
+	}
+
+	return 'M';
+}
+
+/*
+char getmov_remote(char b[64], int *i, int *j, char my_color)
+{
+	char atari_input[32];
+	int trig;
+
+	trig = 1;
+	while (true)
+	{
+		ninput(0, atari_input);
+
+		translate_from_atari(atari_input, i, j, &trig);
+		movsprite(*i, *j, MOVING_COLOR);
+		if (trig == 0)
+		{
+			movsprite(*i, *j, SELECTED_COLOR);
+			if (chkmov(b, my_color, *i, *j) > 0)
+			{
+				break;
+			}
+			else
+			{
+
+				print_info("***Illegal Move ***");
+				sound_negative_beep();
+			}
+		}
+	}
+	movsprite(*i, *j, SELECTED_COLOR);
+
+	return 'M';
+}
+
+*/
 void init_msx_graphics()
 {
 	init_character_set();
@@ -329,11 +467,12 @@ void prtbrd(char *b, bool mefirst, int turn)
 {
 	unsigned int addr;
 	int x,y, pos;
+	char turn_str[10];
 	char black_count[3], 
 	     white_count[3];
 
-	snprintf(black_count, "%2d", turn);
-	print(TURN_X, TURN_Y, black_count, false);
+	snprintf(turn_str, sizeof(turn_str), "TURN: %2d ", turn);
+	print(TURN_X, TURN_Y, turn_str, false);
 
 	if (mefirst)
 	{
@@ -385,7 +524,7 @@ void prtbrd(char *b, bool mefirst, int turn)
 int main()
 {
 	char b[64];
-	int i,ap, turn;
+	int i,j, ap, turn;
 	char key;
 	char message[32];
 	int waiting;
@@ -504,8 +643,16 @@ int main()
 						case 1:
 							sprintf(message, "%s'S TURN", their_name);
 							break;
+						default:
+							sprintf(message, "Huh?");
+							break;
 					}
 					print_info(message);
+
+					if (ap == 0)
+					{
+						getmov_local(b, &i, &j, mefirst ? BLACK : WHITE);
+					}
 
 					//cprintf("\n%.64s", b);
 					//game_in_progress = get_turn() != 64;

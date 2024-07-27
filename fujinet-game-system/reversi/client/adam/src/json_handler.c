@@ -95,20 +95,31 @@ static bool first_time = true;
                 break;
             }
 
+#ifdef NO_FUJI
+            strcpy(_board, "");
+#endif
+
+
             // turn
             if ((r = io_json_query("/t", response, sizeof(response))) != 0)
             {
                 sound_negative_beep();
                 break;
             }
+#ifdef NO_FUJI
+            _turn += 1;
+#else
             _turn = atoi(response);
-
+#endif
             // active player
             if ((r = io_json_query("/a", response, sizeof(response))) != 0)
             {
                 sound_negative_beep();
                 break;
             }
+#ifdef NO_FUJI
+            strcpy(response, "0");
+#endif
             _active_player = atoi(response);
 
             // last result
@@ -149,6 +160,10 @@ static bool first_time = true;
                     sound_negative_beep();
                 } else
                 {
+#ifdef NO_FUJI
+                    sprintf(response, "Player%d", i);
+#endif
+
                     strcpy(_players[i], response);
                 }
                 sprintf(query, "/pl/%d/c", i);
@@ -159,6 +174,12 @@ static bool first_time = true;
                 }
                 else
                 {
+#ifdef NO_FUJI
+                    if (i == 0)
+                        strcpy(response, "B");
+                    else
+                        strcpy(response, "W");
+#endif
                     _player_colors[i] = response[0];
                 }
             }
