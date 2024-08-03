@@ -10,8 +10,10 @@
 
 unsigned char response[1024];
 
+#define BOARD_SIZE 8
+
 static char _url[256];
-static char _board[65];
+static char _pieces[BOARD_SIZE*BOARD_SIZE+1];
 static char _last_result[256];
 static char _last_data[256];
 static char _table[128];
@@ -22,10 +24,9 @@ static char _players[2][128];
 static char _player_colors[2];
 static int  _active_player = -1;
 static int  _move_time = 0;
-static int  _valid_moves[64];
+static int  _valid_moves[BOARD_SIZE*BOARD_SIZE];
 
-
-
+void debug_clrscr(void);
 
 int reversi_init(char *url_in)
 {
@@ -33,19 +34,23 @@ int reversi_init(char *url_in)
 
     snprintf(_url, sizeof(_url), "N:%s", url_in);
 
-    for(i=0;i<64;i++)
+    for(i=0;i<BOARD_SIZE*BOARD_SIZE;i++)
     {
-        _board[i]=EMPTY;
+        _pieces[i]=EMPTY;
     }
 
-    for (i = 0; i < 64; i++)
+    for (i = 0; i < BOARD_SIZE * BOARD_SIZE; i++)
     {
         _valid_moves[i] = NULL;
     }
 
     for (i = 0; i < 2; i++)
     {
-        strcpy(_players[i], "");
+#ifdef NO_FUJI
+        snprintf(_players[i], 128, "NOFUJI%d", i+1);
+#else
+        snprintf(_players[i], 128, "FUJI%d", i + 1);
+#endif
     }
 }
 
@@ -80,8 +85,8 @@ static bool first_time = true;
        char query[128];
 
     snprintf(response, sizeof(response), "%s/state?player=%s&table=%s", _url, _my_name, _table);
-    for (i = 0; i < sizeof(_board); i++)
-        _board[i] = '\0';
+    for (i = 0; i < sizeof(_pieces); i++)
+        _pieces[i] = '\0';
 
     if (io_json_open(response) == 0)
     {
@@ -89,14 +94,14 @@ static bool first_time = true;
         do {
 
             // board
-            if ((r = io_json_query("/bd", _board, sizeof(_board))) != 0)
+            if ((r = io_json_query("/bd", _pieces, sizeof(_pieces))) != 0)
             {
                 sound_negative_beep();
                 break;
             }
 
 #ifdef NO_FUJI
-            strcpy(_board, "");
+            strcpy(_pieces, ".................W.WWW....WBB.....BBB...........................");
 #endif
 
 
@@ -107,7 +112,8 @@ static bool first_time = true;
                 break;
             }
 #ifdef NO_FUJI
-            _turn += 1;
+            if (_move_time < 2)
+                _turn += 1;
 #else
             _turn = atoi(response);
 #endif
@@ -118,9 +124,13 @@ static bool first_time = true;
                 break;
             }
 #ifdef NO_FUJI
-            strcpy(response, "0");
-#endif
+            if (_active_player)
+                _active_player = 0;
+            else
+                _active_player = 1;
+#else           
             _active_player = atoi(response);
+#endif
 
             // last result
             //if ((r = io_json_query("/l", _last_result, sizeof(_last_result))) != 0)
@@ -135,13 +145,20 @@ static bool first_time = true;
                 sound_negative_beep();
                 break;
             }
-            _move_time = atoi(response);
 
+#ifdef NO_FUJI
+            if (_move_time < 0)
+                _move_time = 30;
+            else
+                _move_time--;
+#else
+            _move_time = atoi(response);
+#endif
             for (i = 0; i < 64; i++)
             {
                 _valid_moves[i] = -1;
 
-                sprintf(query, "/vm/%d/m", i);
+                snprintf(query, sizeof(query), "/vm/%d/m", i);
                 // valid moves
                 if ((r = io_json_query(query, response, sizeof(response))) != 0)
                 {
@@ -153,7 +170,8 @@ static bool first_time = true;
 
             for (i=0; i<2; i++)
             {
-                sprintf(query, "/pl/%d/n", i);
+                snprintf(query, sizeof(query), "/pl/%d/n", i);
+
                 // players
                 if ((r = io_json_query(query, response, sizeof(response))) != 0)
                 {
@@ -161,12 +179,14 @@ static bool first_time = true;
                 } else
                 {
 #ifdef NO_FUJI
-                    sprintf(response, "Player%d", i);
+                    snprintf(response, sizeof(response), "Player%d", i);
 #endif
 
-                    strcpy(_players[i], response);
+                    strncpy(_players[i], response, 128);
+
                 }
-                sprintf(query, "/pl/%d/c", i);
+
+                snprintf(query, sizeof(query), "/pl/%d/c", i);
                 // players
                 if ((r = io_json_query(query, response, sizeof(response))) != 0)
                 {
@@ -181,12 +201,12 @@ static bool first_time = true;
                         strcpy(response, "W");
 #endif
                     _player_colors[i] = response[0];
+
                 }
             }
 
 
-
-            data_change = (!(_last_data == _board)) || first_time;
+            data_change = (!(_last_data == _pieces)) || first_time;
 
             first_time = false;
             _connected = true;
@@ -202,11 +222,19 @@ int get_turn(void)
     return _turn;
 }
 
+bool is_my_turn(int my_number)
+{
+    if (_active_player == my_number)
+        return true;
+    else
+        return false;
+}
+
 void get_board(char *board_out, int size)
 {
     if (size >= 64)
     {
-        memcpy(board_out, _board, 64);
+        memcpy(board_out, _pieces, 64);
     } else
     {
         sound_negative_beep();
@@ -216,13 +244,13 @@ void get_board(char *board_out, int size)
 
 void get_player_name(int num, char *player)
 {
-    if ((num > 0) && (num < 2))
+    if ((num >= 0) && (num < 2))
         strcpy(player, _players[num]);
 }
 
 char get_player_color(int num)
 {
-    if ((num > 0) && (num < 2))
+    if ((num >= 0) && (num < 2))
         return _player_colors[num];
     else
         return '?';
@@ -231,4 +259,58 @@ char get_player_color(int num)
 int get_active_player(void)
 {
     return _active_player;
+}
+
+int put_move(int column, int row, char color)
+{
+    snprintf(response, sizeof(response), "%s/move/:\"%d\"?player=%s&table=%s", _url, row*BOARD_SIZE+column, _my_name, _table);
+    if (io_json_open(response) == 0)
+    {
+        return 0;
+    }
+    return 1;
+}
+
+bool is_valid_move_debug(int column, int row)
+{
+    int position = row * BOARD_SIZE + column;
+    bool valid = false;
+    int i=0;
+
+    debug_clrscr();
+
+    cprintf("column:%d row:%d looking for %d\n", column, row, position);
+
+    while(_valid_moves[i] != -1)
+    {
+        cprintf("looking at %d\n", _valid_moves[i]);
+        if (position == _valid_moves[i])
+            break;
+        i++;
+    }
+
+    cprintf("returning %d\n", _valid_moves[i]);
+
+    gets("    ");
+    return _valid_moves[i] != -1;
+}
+
+bool is_valid_move(int column, int row)
+{
+    int position = row * BOARD_SIZE + column;
+    bool valid = false;
+    int i = 0;
+
+    while (_valid_moves[i] != -1)
+    {
+        if (position == _valid_moves[i])
+            break;
+        i++;
+    }
+
+    return _valid_moves[i] != -1;
+}
+int get_remaining_time(void)
+{
+    return _move_time;
 }

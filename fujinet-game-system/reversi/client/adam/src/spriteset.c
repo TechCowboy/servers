@@ -1,5 +1,6 @@
 #include "spriteset.h"
 #include <msx.h>
+#include <conio.h>
 
 SPRITE_ATTRIBUTE sprite_attrib[TOTAL_SPRITES];
 
@@ -23,23 +24,46 @@ void init_adam_sprites()
 	movsprite(-1, -1, 0x0f);
 }
 
-void movsprite(int i, int j, int color)
+void showsprite(bool show)
+{
+	static char last_y_value = 0;
+
+	if (show && (sprite_attrib[0].y == SPRITE_TERMINATOR))
+	{
+		sprite_attrib[0].y = last_y_value;
+	} else
+	{
+		if (sprite_attrib[0].y != SPRITE_TERMINATOR)
+		{
+			last_y_value = sprite_attrib[0].y = sprite_attrib[0].y;
+			sprite_attrib[0].y = SPRITE_TERMINATOR;
+		}
+	}
+}
+
+
+/* 
+ move off screen by using -1, -1
+*/
+void movsprite(int column, int row, int color)
 {
 	int x1, y1, sprite,x,y;
 	char early_clock;
 
-	if ((i == -1) || (j == -1))
+
+	if ((column == -1) || (row == -1))
 	{
 		x1 = 0;
 		y1 = 0;
 		early_clock = 1;
 	} else
 	{
-		x1 = j * 16 + BOARD_START_X * 8;
-		y1 = i * 16 + BOARD_START_Y * 8 - 1;
+		x1 = column * 16 + BOARD_START_X * 8;
+		y1 = row    * 16 + BOARD_START_Y * 8 - 1;
 		early_clock = 0;
 	}
 	char colors[] = {3, 2, 5, 4, 0xb, 0xa, 0xf};
+	char temp[30];
 
 	// 0 = Transparent
 	// 1 = Black
@@ -67,8 +91,14 @@ void movsprite(int i, int j, int color)
 			sprite_attrib[sprite].y = y;
 			sprite_attrib[sprite].color_code = color;
 			sprite_attrib[sprite].early_clock = early_clock;
+
 			sprite++;
+			if (sprite == TOTAL_SPRITES)
+				break;
 		}
+		if (sprite == TOTAL_SPRITES)
+			break;
+
 		y1 -= 15;
 	}
 

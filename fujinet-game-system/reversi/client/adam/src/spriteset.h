@@ -1,6 +1,10 @@
 #ifndef _NWD_SPRITESET_H
 #define _NWD_SPRITESET_H
 
+#ifndef bool
+#define bool char
+#endif
+
 typedef struct
 {
     unsigned char y;
@@ -37,6 +41,8 @@ typedef struct
 #define SELECTED_COLOR 0x06
 #define MOVING_COLOR   0x05
 
+#define SPRITE_TERMINATOR 208
+
 extern SPRITE_ATTRIBUTE sprite_attrib[TOTAL_SPRITES];
 
 #define SprAttrTable 0x1b00  // Sprite Attribute
@@ -46,6 +52,7 @@ extern unsigned char sprite_set[];
 extern unsigned char sprite_color[];
 
 void init_adam_sprites() ;
+void showsprite(bool show) ;
 void movsprite(int x, int y, int trig);
 
 #endif

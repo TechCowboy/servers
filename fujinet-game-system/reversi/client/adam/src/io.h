@@ -86,7 +86,7 @@ char *strncpy2(char *dest, char *src, size_t size);
 io_time
 - This function gets the time from the fujinet device
 Parameters
-wait_until: FUJI_TIME representing the time to wait for.
+wait_until: FUJI_TIME representing th.
 
 Returns
     0: Success

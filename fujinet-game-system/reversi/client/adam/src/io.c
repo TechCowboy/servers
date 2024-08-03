@@ -194,7 +194,7 @@ int io_time(FUJI_TIME *fuji_time)
     oc.cmd = 0xD2; // Get Time
 
     // request time
-    if (EOS_WRITE_CHARACTER_DEVICE(FUJI_DEV, (unsigned char *)oc, (unsigned short)sizeof(oc)) != ACK)
+    if (EOS_WRITE_CHARACTER_DEVICE(FUJI_DEV, (unsigned char *)&oc, (unsigned short)sizeof(oc)) != ACK)
     {
         return 1; // could not open
     }
@@ -282,13 +282,13 @@ int io_json_open(char *url)
     scm.mode = CHANNEL_MODE_JSON;
 
     // open url
-    if (EOS_WRITE_CHARACTER_DEVICE(NET_DEV, (unsigned char *)oc, sizeof(oc)) != ACK)
+    if (EOS_WRITE_CHARACTER_DEVICE(NET_DEV, (unsigned char *)&oc, sizeof(oc)) != ACK)
     {
         return 1; // could not open
     }
 
     // set channel to json
-    if (EOS_WRITE_CHARACTER_DEVICE(NET_DEV, (unsigned char *)scm, sizeof(scm)) != ACK)
+    if (EOS_WRITE_CHARACTER_DEVICE(NET_DEV, (unsigned char *)&scm, sizeof(scm)) != ACK)
     {
         return 2; // could not set to json mode
     }
@@ -312,14 +312,14 @@ int io_json_query(char *element, char *data, int max_buffer_size)
 
     qcm.cmd = 'Q';
     strncpy2(qcm.query, element, sizeof(qcm.query));
-    r = EOS_WRITE_CHARACTER_DEVICE(NET_DEV, (unsigned char *)qcm, sizeof(qcm));
+    r = EOS_WRITE_CHARACTER_DEVICE(NET_DEV, (unsigned char *)&qcm, sizeof(qcm));
     if (r != ACK)
     {
 
         vdp_set_mode(mode_2);
-        clrscr();
-        printf("<<<%s>>> FAILED\n", element);
-        csleep(400);
+        //clrscr();
+        //printf("<<<%s>>> FAILED\n", element);
+        //csleep(400);
         return 1; // did not ack query command
     }
 
