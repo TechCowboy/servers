@@ -2,6 +2,7 @@ package main
 
 import (
 	//"fmt"
+	//"crypto/rand"
 	"log"
 	"os"
 	"strings"
@@ -85,25 +86,53 @@ func main() {
 
 // request pattern
 // 1. get state (locks the state)
-//   A. Start a function that updates table state
+//   A. Start a function that updates table statef
 //   B. Defer unlocking the state until the current "state updating" function is complete
 //   C. If state is not nil, perform logic
 // 2. Serialize and return results
 
 // Executes a move for the client player, if that player is currently active
+
+
+
 func apiMove(c *gin.Context) {
+
+	log.Printf("********************************************************\n")
+	log.Printf("***********************apiMove**************************\n")
+	log.Printf("********************************************************\n")
 
 	state, unlock := getState(c)
 	func() {
 		defer unlock()
 
 		if state != nil {
+			for i := 0; i < 2; i++ {
+				player := state.Players[i]
+				color := "BLACK"
+				if player.color == CELL_WHITE {
+					color = "WHITE"
+				}
+				log.Printf("player[%d]: %s %s\n", i, player.Name, color)
+
+			}
+			log.Printf("clientPlayer:%d  ActivePlayer: %d\n", state.clientPlayer, state.ActivePlayer)
 			// Access check - only move if the client is the active player
 			if state.clientPlayer == state.ActivePlayer {
 				move := strings.ToUpper(c.Param("move"))
-				state.performMove(move)
+				log.Printf("MOVE: '%s'\n", move)
+				requested_move := move[2:]
+
+				requested_move = requested_move[:len(requested_move)-1]
+
+				if state.isValidMove(requested_move) {
+					state.performMove(requested_move)
+				} else {
+					log.Printf("Valid Move\n")
+				}
 				saveState(state)
 				state = state.createClientState()
+			} else {
+				log.Printf("MOVE: Not active player\n")
 			}
 		}
 	}()
@@ -115,6 +144,7 @@ func apiMove(c *gin.Context) {
 func apiState(c *gin.Context) {
 	hash := c.Query("hash")
 	state, unlock := getState(c)
+	log.Println("apiState")
 
 	func() {
 		defer unlock()
@@ -217,7 +247,7 @@ func getState(c *gin.Context) (*GameState, func()) {
 	table = strings.ToLower(table)
 	player := c.Query("player")
 
-	log.Printf("getState table:%s player:%s\n", table, player)
+	log.Printf("getState table:'%s' player:'%s'\n", table, player)
 	// Lock by the table so to avoid multiple threads updating the same table state
 	unlock := tableMutex.Lock(table)
 

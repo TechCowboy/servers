@@ -1,11 +1,14 @@
 package main
 
 import (
+	"crypto/rand"
 	"fmt"
 	"log"
+	"math/big"
+
+	//"sort"
 
 	//"math"
-	//"math/rand"
 	//"sort"
 	"strconv"
 	"strings"
@@ -20,23 +23,19 @@ const MAX_PLAYERS = 2
 const BOARD_SIZE = 8
 const WAITING_TURN = 0
 const FIRST_TURN = 1
-const ENDING_TURN = 64
 const ANONYMOUS_CLIENT = -1
 
-const MOVE_TIME_GRACE_SECONDS = 4
+const MOVE_TIME_GRACE_SECONDS = 60
 const BOT_TIME_LIMIT = time.Second * time.Duration(3)
-const PLAYER_TIME_LIMIT = time.Second * time.Duration(39)
-const ENDGAME_TIME_LIMIT = time.Second * time.Duration(12)
+const PLAYER_TIME_LIMIT = time.Second * time.Duration(30)
+
+const ENDGAME_TIME_LIMIT = time.Second * time.Duration(39)
 const NEW_ROUND_FIRST_PLAYER_BUFFER = time.Second * time.Duration(1)
 
 // Drop players who do not make a move in 5 minutes
 const PLAYER_PING_TIMEOUT = time.Minute * time.Duration(-5)
 
 const WAITING_MESSAGE = "Waiting for more players"
-
-var moveLookup = map[string]string{
-	"MV": "MOVE",
-}
 
 var botNames = []string{"Hal", "Rusty", "Prime", "Torque", "Spark", "Volt", "Robo", "Data"}
 
@@ -82,6 +81,7 @@ type Player struct {
 	Status Status `json:"s"`
 	Move   string `json:"m"`
 	Color  string `json:"c"`
+	Score  int    `json:"sc"`
 
 	// Internal
 	isBot    bool
@@ -125,7 +125,16 @@ var directions = [BOARD_SIZE][2]int{
 	{1, 1}, {1, -1}, {-1, 1}, {-1, -1},
 }
 
-var lastTurn = -1
+var weight_board = []int{
+	100, -30, 6, 2, 2, 6, -30, 100,
+	-30, -50, 0, 0, 0, 0, -50, -30,
+	6, 0, 0, 0, 0, 0, 0, 6,
+	2, 0, 0, 0, 0, 0, 0, 2,
+	2, 0, 0, 0, 0, 0, 0, 2,
+	6, 0, 0, 0, 0, 0, 0, 6,
+	-30, -50, 0, 0, 0, 0, -50, -30,
+	100, -30, 6, 2, 2, 6, -30, 100,
+}
 
 func initializeGameServer() {
 
@@ -134,6 +143,8 @@ func initializeGameServer() {
 		botNames[i] = botNames[i] + " BOT"
 	}
 }
+
+var lastTurn int = -1
 
 func createGameState(playerCount int, registerLobby bool) *GameState {
 
@@ -160,10 +171,7 @@ func createGameState(playerCount int, registerLobby bool) *GameState {
 		botCounter++
 	}
 
-	log.Printf("Players Count: %d\n", playerCount)
-
 	if playerCount < 2 {
-		log.Printf("createGameState - waiting message\n")
 		state.LastResult = WAITING_MESSAGE
 	} else {
 		state.LastResult = ""
@@ -191,9 +199,45 @@ func board_to_string(state *GameState) string {
 	return board_str
 }
 
+func (state *GameState) calc_score() {
+	var all_total int = 0
+
+	for j := 0; j < len(state.Players); j++ {
+		player := &state.Players[j]
+
+		player.Score = 0
+		for i := 0; i < BOARD_SIZE*BOARD_SIZE; i++ {
+			if state.board[i].cell == player.color {
+				player.Score += 1
+			}
+			if state.board[i].cell != CELL_EMPTY {
+				all_total += 1
+			}
+
+		}
+
+		if player.Score == 0 {
+			state.gameOver = true
+		}
+	}
+
+	if all_total == BOARD_SIZE*BOARD_SIZE {
+		state.gameOver = true
+	}
+}
+
 func display_board(state *GameState) {
 
-	board := "\nBoard:\n 12345678\n"
+	var board string
+
+	var colour string
+
+	if state.Players[state.ActivePlayer].color == CELL_BLACK {
+		colour = "White"
+	} else {
+		colour = "Black"
+	}
+	board = fmt.Sprintf("\nBoard: Turn %2d, %s to move\n 12345678\n", state.Turn, colour)
 	pos := 0
 
 	for y := 0; y < BOARD_SIZE; y++ {
@@ -218,6 +262,7 @@ func display_board(state *GameState) {
 	log.Printf("%s 12345678", board)
 
 }
+
 
 func display_moves(state *GameState, validMoves []validMove) {
 
@@ -227,47 +272,58 @@ func display_moves(state *GameState, validMoves []validMove) {
 		log.Printf("\nMoves for White\n")
 	}
 
-	board := "\n 12345678\n"
-	pos := 0
+	if len(validMoves) == 0 {
+		log.Printf("*******************************************\n")
+		log.Printf("************* NO MOVES ********************\n")
+		log.Printf("*******************************************\n")
+	} else {
 
-	for y := 0; y < BOARD_SIZE; y++ {
-		board = board + strconv.Itoa(y+1)
-		for x := 0; x < BOARD_SIZE; x++ {
-			board_piece := "."
+		board := "\n 12345678\n"
+		pos := 0
 
-			if state.board[pos].cell == CELL_BLACK {
-				board_piece = "B"
-			}
+		for y := 0; y < BOARD_SIZE; y++ {
+			board = board + strconv.Itoa(y+1)
+			for x := 0; x < BOARD_SIZE; x++ {
+				board_piece := "."
 
-			if state.board[pos].cell == CELL_WHITE {
-				board_piece = "W"
-			}
+				if state.board[pos].cell == CELL_BLACK {
+					board_piece = "B"
+				}
 
-			if state.board[pos].cell == CELL_EMPTY {
-				for i := 0; i < len(validMoves); i++ {
-					tempPos, e := strconv.Atoi(validMoves[i].Move)
-					if e != nil {
-						log.Printf("Conversion error")
-					}
-					if tempPos == pos {
-						board_piece = strconv.Itoa(i)
+				if state.board[pos].cell == CELL_WHITE {
+					board_piece = "W"
+				}
+
+				if state.board[pos].cell == CELL_EMPTY {
+					for i := 0; i < len(validMoves); i++ {
+						tempPos, e := strconv.Atoi(validMoves[i].Move)
+						if e != nil {
+							log.Printf("Conversion error")
+						}
+						if tempPos == pos {
+							if i < 10 {
+								board_piece = strconv.Itoa(i)
+							} else {
+								board_piece = string(97 + i - 10)
+							}
+						}
 					}
 				}
+
+				board += board_piece
+				pos += 1
 			}
-
-			board += board_piece
-			pos += 1
+			board = board + "\n"
 		}
-		board = board + "\n"
-	}
 
-	log.Printf("%s 12345678", board)
+		log.Printf("%s 12345678", board)
+	}
 
 }
 
+
 // ApplyMove applies a move to the board
 func (state *GameState) ApplyMove(row int, col int, player_color Cell) {
-	log.Printf("ApplyMove\n")
 	var opponent_color = CELL_BLACK
 
 	state.board[row*BOARD_SIZE+col].cell = player_color
@@ -289,10 +345,8 @@ func (state *GameState) ApplyMove(row int, col int, player_color Cell) {
 			}
 		}
 	}
-	log.Printf("In applymove\n")
-	display_board(state)
+	//display_board(state)
 	state.Board_str = board_to_string(state)
-	log.Printf("Leaving applymove\n")
 }
 
 func (state *GameState) newGame() {
@@ -346,10 +400,10 @@ func (state *GameState) newGame() {
 
 	state.LastResult = ""
 	state.Turn = FIRST_TURN
-	log.Printf("Active Player is %d\n", state.ActivePlayer)
 
 }
 
+/*
 func (state *GameState) newTurn() {
 
 	// Drop any players that left last turn
@@ -365,20 +419,14 @@ func (state *GameState) newTurn() {
 		}
 
 		if playersLeft < 2 {
-			log.Printf("playersLeft < 2 %d\n", playersLeft)
 			state.endGame(false)
 			return
 		}
 	} else {
 		if len(state.Players) < 2 {
-			log.Printf("TURN == WAITING_TURN && %d\n", len(state.Players))
 			return
 		}
 	}
-
-	log.Printf("len(state.Players): %d\n", len(state.Players))
-
-	log.Printf("newTurn turn: %d\n", state.Turn)
 
 	// First turn of a new game?
 	if state.Turn == FIRST_TURN {
@@ -394,6 +442,7 @@ func (state *GameState) newTurn() {
 	lastTurn = state.Turn
 
 }
+*/
 
 func (state *GameState) addPlayer(playerName string, isBot bool) {
 
@@ -407,6 +456,7 @@ func (state *GameState) addPlayer(playerName string, isBot bool) {
 }
 
 func (state *GameState) setClientPlayerByName(playerName string) {
+
 	// If no player name was passed, simply return. This is an anonymous viewer.
 	if len(playerName) == 0 {
 		log.Printf("No name so Anonymous Client")
@@ -416,19 +466,10 @@ func (state *GameState) setClientPlayerByName(playerName string) {
 
 	state.clientPlayer = slices.IndexFunc(state.Players, func(p Player) bool { return strings.EqualFold(p.Name, playerName) })
 
-	if state.clientPlayer == -1 {
-		log.Printf("%s - was not found\n", playerName)
-	} else {
-		log.Printf("%s - already exists clientPlayer:%d\n", playerName, state.clientPlayer)
-	}
 	// If a new player is joining, remove any old players that timed out to make space
 	if state.clientPlayer <= ANONYMOUS_CLIENT {
 		// Drop any players that left to make space
 		state.dropInactivePlayers(false, true)
-	}
-
-	if state.clientPlayer == ANONYMOUS_CLIENT {
-		log.Printf("%s will be added as a client if room\n", playerName)
 	}
 
 	// Add new player if there is room
@@ -466,16 +507,6 @@ func (state *GameState) endGame(abortGame bool) {
 	log.Printf("Ending Game!\n")
 	state.gameOver = true
 	state.ActivePlayer = -1
-	state.Turn = ENDING_TURN
-
-	remainingPlayers := []int{}
-
-	for index, player := range state.Players {
-		if !abortGame && player.Status == STATUS_PLAYING {
-			remainingPlayers = append(remainingPlayers, index)
-		}
-
-	}
 
 	state.LastResult = ""
 
@@ -483,11 +514,62 @@ func (state *GameState) endGame(abortGame bool) {
 
 }
 
+func (state *GameState) botMove() {
+
+	if state.Players[state.ActivePlayer].Status == STATUS_PLAYING {
+		moves := state.getValidMoves()
+
+		// If this is a bot, pick the best move using some simple logic (sometimes random)
+		if state.Players[state.ActivePlayer].isBot {
+			log.Printf("Active Player isBot\n")
+			if len(moves) > 0 {
+				log.Printf("Forcing Move")
+				max := big.NewInt(int64(len(moves) + 5))
+
+				// Get a randome number between 0 and "moves"+5
+
+				rand_move, err := rand.Int(rand.Reader, max)
+
+				if err != nil {
+					rand_move = big.NewInt(0)
+				}
+
+				rand_str := rand_move.String()
+				rand_int, err := strconv.Atoi(rand_str)
+
+				// subtract 5 so the rand is 0 and moves
+
+				rand_int -= 5
+
+				if err != nil {
+					rand_int = 0
+				}
+
+				// clamp it to zero so that it's more likely to take the best move
+				// which is index 0
+
+				if rand_int < 0 {
+					rand_int = 0
+				}
+
+				state.performMove(moves[rand_int].Move)
+			}
+		}
+	}
+}
+
 // ********************************************************************************
 // Emulates simplified player/logic for REVERSI
 // ********************************************************************************
 func (state *GameState) runGameLogic() {
-	log.Printf("****runGameLogic****\n")
+
+	PlayerName := "-1"
+
+	if state.ActivePlayer >= 0 {
+		PlayerName = state.Players[state.ActivePlayer].Name
+	}
+
+	log.Printf("****runGameLogic  Turn:%d  ActivePlayer:%d   %s****\n", state.Turn, state.ActivePlayer, PlayerName)
 	state.playerPing()
 
 	// We can't play a game until there are at least 2 players
@@ -500,12 +582,9 @@ func (state *GameState) runGameLogic() {
 
 	// Very first call of state? Initialize first turn but do not play for any BOTs
 	if state.Turn == WAITING_TURN {
-		log.Printf("runGameLogic newGame\n")
 		state.newGame()
 		return
 	}
-
-	//isHumanPlayer := state.ActivePlayer == state.clientPlayer
 
 	if state.gameOver {
 
@@ -529,23 +608,11 @@ func (state *GameState) runGameLogic() {
 
 	// If only one player is left, just end the game now
 	if playersLeft == 1 {
-		log.Printf("Players Left == 1\n")
 		state.endGame(false)
 		return
 	}
 
 	// Check if we should start the next game. One of the following must be true
-
-	if state.ActivePlayer > -1 {
-		if state.Turn == ENDING_TURN {
-			log.Printf("ActivePlayer >  -1\n")
-			state.endGame(false)
-		} else {
-			log.Printf("runGameLogic newTurn ActivePlayer > -1\n")
-			state.newTurn()
-		}
-		return
-	}
 
 	// Return if the move timer has not expired
 	// Check timer if no active player, or the active player hasn't already left
@@ -553,40 +620,17 @@ func (state *GameState) runGameLogic() {
 		moveTimeRemaining := int(time.Until(state.moveExpires).Seconds())
 
 		if moveTimeRemaining > 0 {
-			log.Printf("runGameLogic moveTimeRemaining\n")
+			log.Printf("runGameLogic moveTimeRemaining > 0 - exit\n")
 			return
 		}
 	}
 
 	// If there is no active player, we are done
 	if state.ActivePlayer < 0 {
-		log.Printf("runGameLogic ActivePlayer < 0\n")
+		log.Printf("runGameLogic ActivePlayer < 0 - exit\n")
 		return
 	}
-
-	// Force a move for this player or BOT if they are in the game
-	if state.Players[state.ActivePlayer].Status == STATUS_PLAYING {
-		moves := state.getValidMoves()
-
-		// If this is a bot, pick the best move using some simple logic (sometimes random)
-		if state.Players[state.ActivePlayer].isBot {
-			log.Printf("Active Player isBot\n")
-			if len(moves) > 0 {
-				log.Printf("Forcing Move")
-				state.performMove(moves[0].Move)
-			}
-		}
-
-		if !state.Players[state.ActivePlayer].isBot {
-			log.Printf("Active Player isHuman\n")
-			if len(moves) > 0 {
-				log.Printf("Forcing Move")
-				state.performMove(moves[0].Move)
-			}
-		}
-
-	}
-
+	log.Println("Normal exit")
 }
 
 // Drop players that left or have not pinged within the expected timeout
@@ -653,7 +697,6 @@ func (state *GameState) clientLeave() {
 
 	// If the last player dropped, stop the game and update the lobby
 	if playersLeft == 0 {
-		log.Printf("Players left == 0\n")
 		state.endGame(true)
 		state.dropInactivePlayers(false, false)
 		return
@@ -668,8 +711,6 @@ func (state *GameState) playerPing() {
 // Performs the requested move for the active player, and returns true if successful
 func (state *GameState) performMove(move string, internalCall ...bool) bool {
 
-	log.Printf("Perform Move '%s'\n", move)
-
 	if len(internalCall) == 0 || !internalCall[0] {
 		state.playerPing()
 	}
@@ -677,9 +718,10 @@ func (state *GameState) performMove(move string, internalCall ...bool) bool {
 	// Get pointer to player
 	player := &state.Players[state.ActivePlayer]
 
+	log.Printf("performMove - Player: %s is %s", player.Name, player.Color)
+
 	// Sanity check if player is still in the game. Unless there is a bug, they should never be active if their status is != PLAYING
 	if player.Status != STATUS_PLAYING {
-		log.Printf("Not Playing")
 		return false
 	}
 
@@ -693,14 +735,18 @@ func (state *GameState) performMove(move string, internalCall ...bool) bool {
 	if err != nil {
 		log.Printf("error converting '%s' to int\n", move)
 		return false
+	} else {
+		log.Printf("Requested move board_pos:%d", board_pos)
 	}
 	row := board_pos / BOARD_SIZE
 	col := board_pos - (row * BOARD_SIZE)
 
+	log.Printf("Apply move %d, %d", row, col)
+
 	state.ApplyMove(row, col, player.color)
-	player.Move = moveLookup[move]
-	log.Printf("Going to next player\n")
+	state.calc_score()
 	state.Turn++
+
 	state.nextValidPlayer()
 
 	return true
@@ -721,7 +767,6 @@ func (state *GameState) resetPlayerTimer(newRound bool) {
 }
 
 func (state *GameState) nextValidPlayer() {
-	log.Printf("CurrentPlayer: %d\n", state.ActivePlayer)
 	// Move to next player
 	state.ActivePlayer = (state.ActivePlayer + 1) % len(state.Players)
 
@@ -730,9 +775,19 @@ func (state *GameState) nextValidPlayer() {
 		state.ActivePlayer = (state.ActivePlayer + 1) % len(state.Players)
 	}
 	state.resetPlayerTimer(false)
-	log.Printf("NewPlayer: %d\n", state.ActivePlayer)
 }
 
+
+func (state *GameState) isValidMove(move string) bool {
+
+	moves := state.getValidMoves()
+	for i :=0; i<len(moves); i++ {
+		if move == moves[i].Move {
+			return true
+		}
+	}
+	return false
+}
 /***********************************************
  * Calculates which squares are valid moves    *
  * for player. Valid moves are recorded in the *
@@ -748,17 +803,18 @@ func (state *GameState) getValidMoves() []validMove {
 	var opponent_color Cell = CELL_WHITE
 	var move validMove
 	var moves []validMove
+	var sorted_moves []validMove
+	var weight []int
+
 
 	if state.ActivePlayer == -1 {
 		return moves
 	}
 
 	if state.Players[state.ActivePlayer].color == CELL_BLACK {
-		log.Printf("Active Player (%s) is Black", state.Players[state.ActivePlayer].Name)
 		player_color = CELL_BLACK
 		opponent_color = CELL_WHITE
 	} else {
-		log.Printf("Active Player (%s) is White", state.Players[state.ActivePlayer].Name)
 		player_color = CELL_WHITE
 		opponent_color = CELL_BLACK
 	}
@@ -774,22 +830,27 @@ func (state *GameState) getValidMoves() []validMove {
 			}
 
 			/* Check all the squares around the blank square  */
-			/* for the opponents counter                      */
+			/* for the opponents disk                      */
 			for rowdelta = -1; rowdelta <= 1; rowdelta++ {
 				for coldelta = -1; coldelta <= 1; coldelta++ {
 					/* Don't check outside the array, or the current square */
-					if row+rowdelta < 0 || row+rowdelta >= BOARD_SIZE ||
-						col+coldelta < 0 || col+coldelta >= BOARD_SIZE ||
+
+					current_row := row + rowdelta
+					current_col := col + coldelta
+					if current_row < 0 ||
+						current_row >= BOARD_SIZE ||
+						current_col < 0 ||
+						current_col >= BOARD_SIZE ||
 						(rowdelta == 0 && coldelta == 0) {
 						continue
 					}
 
 					/* Now check the square */
-					if state.board[(row+rowdelta)*BOARD_SIZE+col+coldelta].cell == opponent_color {
+					if state.board[current_row*BOARD_SIZE+current_col].cell == opponent_color {
 						/* If we find the opponent, move in the delta direction  */
 						/* over opponent counters searching for a player counter */
-						x = row + rowdelta /* Move to          */
-						y = col + coldelta /* opponent square  */
+						x = current_col /* Move to          */
+						y = current_row /* opponent square  */
 
 						/* Look for a player square in the delta direction */
 						for {
@@ -797,7 +858,10 @@ func (state *GameState) getValidMoves() []validMove {
 							x += coldelta /* in delta direction*/
 
 							/* If we move outside the array, give up */
-							if x < 0 || x >= BOARD_SIZE || y < 0 || y >= BOARD_SIZE {
+							if x < 0 ||
+								x >= BOARD_SIZE ||
+								y < 0 ||
+								y >= BOARD_SIZE {
 								break
 							}
 							/* If we find a blank square, give up */
@@ -808,12 +872,14 @@ func (state *GameState) getValidMoves() []validMove {
 							/*  If the square has a player counter */
 							/*  then we have a valid move          */
 							if state.board[x+y*BOARD_SIZE].cell == player_color {
-								log.Printf("valid move: %d [%d,%d]\n", row*BOARD_SIZE+col, row+1, col+1)
+								//log.Printf("valid move: %d [%d,%d]\n", row*BOARD_SIZE+col, row+1, col+1)
 
 								move.Move = strconv.Itoa(row*BOARD_SIZE + col)
 								move.Name = strconv.Itoa(row+1) + "," + strconv.Itoa(col+1)
+
 								moves = append(moves, move) /* Mark as valid */
-								break                       /* Go check another square    */
+								weight = append(weight, weight_board[row*BOARD_SIZE+col])
+								break /* Go check another square    */
 							}
 						}
 					} // if
@@ -822,8 +888,42 @@ func (state *GameState) getValidMoves() []validMove {
 		} // for col
 	} // for row
 
-	display_moves(state, moves)
-	return moves
+	/* Sort moves according to weight */
+/*
+	var continue_sort = len(moves) > 0
+
+	for continue_sort {
+		var max = weight[0]
+		var max_index = 0
+
+		for i := 1; i < len(moves); i++ {
+			if weight[i] > max {
+				max = weight[i]
+				max_index = i
+			}
+		}
+
+		sorted_moves = append(sorted_moves, moves[max_index])
+
+		// Using append function to combine two slices
+		// first slice is the slice of all the elements before the given index
+		// second slice is the slice of all the elements after the given index
+		// append function appends the second slice to the end of the first slice
+		// returning a slice, so we store it in the form of a slice
+		moves = append(moves[:max_index], moves[max_index+1:]...)
+		weight = append(weight[:max_index], weight[max_index+1:]...)
+
+		continue_sort = len(moves) > 0
+
+	}
+*/
+	sorted_moves = moves
+	//display_moves(state, sorted_moves)
+
+	for i:=0; i<len(sorted_moves); i++ {
+		log.Printf("%s  %s\n", sorted_moves[i].Move, sorted_moves[i].Name)
+	}
+	return sorted_moves
 }
 
 // Creates a copy of the state and modifies it to be from the
@@ -853,41 +953,30 @@ func (state *GameState) createClientState() *GameState {
 
 	state.ValidMoves = state.getValidMoves()
 
+	if len(state.ValidMoves) == 0 {
+		state.nextValidPlayer()
+		return state
+	}
+
 	//}
 
 	// Determine the move time left. Reduce the number by the grace period, to allow for plenty of time for a response to be sent back and accepted
 	state.MoveTime = int(time.Until(state.moveExpires).Seconds())
+	log.Printf("state.MoveTime: %d\n", state.MoveTime)
 
-	if state.ActivePlayer > -1 {
-		log.Println("Reducing timer")
-		state.MoveTime -= MOVE_TIME_GRACE_SECONDS
-		log.Printf("Time = %d  ActivePlayer = %d\n", state.MoveTime, state.ActivePlayer)
-	}
-
-	// No need to send move time if the calling player isn't the active player
-	if state.MoveTime < 0 || state.ActivePlayer != 0 {
-		log.Printf("Time adjusted to zero")
-		state.MoveTime = 0
-	}
-
-	if state.ActivePlayer == 0 {
-		if len(state.ValidMoves) == 0 {
-			log.Printf("ActivePlayer No moves")
-			state.nextValidPlayer()
-		} else {
-			log.Printf("ActivePlayer Force Moved: %s", state.ValidMoves[0].Name)
-			state.performMove(state.ValidMoves[0].Move)
-		}
+	// if the player has no moves, just go to the next player
+	if len(state.ValidMoves) == 0 {
+		log.Printf("ActivePlayer No moves")
+		state.nextValidPlayer()
 	} else {
-		log.Printf("Not an active player")
-		if (state.ActivePlayer >= 0) && (state.MoveTime == 0) {
-
+		// if the player times out, force a move the best move
+		if (state.ActivePlayer >= 0) && (state.MoveTime <= 0) {
+			log.Printf("state ActivePlayer >=0 && MoveTime <= 0\n")
 			if len(state.ValidMoves) > 0 {
-				log.Printf("ActivePlayer Force Moved: %s", state.ValidMoves[0].Name)
+				log.Printf("Force %s to moved: %s", state.Players[state.ActivePlayer].Name, state.ValidMoves[0].Name)
 				state.performMove(state.ValidMoves[0].Move)
 			}
 		}
-
 	}
 	// Compute hash - this will be compared with an incoming hash. If the same, the entire state does not
 	// need to be sent back. This speeds up checks for change in state
