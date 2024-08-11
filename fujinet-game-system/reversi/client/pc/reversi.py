@@ -25,11 +25,12 @@ DIALOG_FONT = ('Helvetica', 20)
 
 
 global done
-
+#ip = "192.168.2.254"
+ip = "localhost"
 
 class Reversi:
     
-    def __init__(self):
+    def __init__(self, ip):
         # Initialize pygame hooks
         pygame.init()
         pygame.display.set_caption('Reversi')
@@ -37,7 +38,8 @@ class Reversi:
         
         self.clock = pygame.time.Clock()
 
-        self.url = 'http://localhost:8080'
+        
+        self.url = f'http://{ip}:8080'
 
         self.server = json_handler(self.url)
         
@@ -69,6 +71,9 @@ class Reversi:
     
     def redraw_board(self):
         self.screen.fill(self.game_background)
+        
+        #********** player 1 name ************
+        
         # create a text surface object,
         # on which text is drawn on it.
         text = self.font.render(self.server.get_name(0), True, self.text_color_black, self.game_background)
@@ -80,6 +85,8 @@ class Reversi:
         # set the center of the rectangular object.
         textRect.center = (textRect.width, textRect.height)
         self.screen.blit(text, textRect)
+
+        #********** player 2 name ************
 
         text = self.font.render(self.server.get_name(1), True, self.text_color_white, self.game_background)
          
@@ -93,14 +100,21 @@ class Reversi:
 
         if self.ap >= 0:
             text = self.font.render(f"{self.server.get_move_time()}", True, self.text_color_black, self.game_background)
+            score1 = self.font.render(f"{self.server.get_score(0)}", True, self.text_color_black, self.game_background)
+            score2 = self.font.render(f"{self.server.get_score(1)}", True, self.text_color_white, self.game_background)
             textRect = text.get_rect()
+            scoreRect1 = score1.get_rect()
+            scoreRect2 = score2.get_rect()
             if self.ap == 0:
                 textRect.center = (textRect.width, textRect.height*2)
             else:
                 textRect.center = (self.screen_width - textRect.width, textRect.height*2)
             
+            scoreRect1.center = (textRect.width, textRect.height*10)
+            scoreRect2.center = (self.screen_width - textRect.width, textRect.height*10)
             self.screen.blit(text, textRect)
-                
+            self.screen.blit(score1, scoreRect1)
+            self.screen.blit(score2, scoreRect2) 
 
         ''' Redraws the board '''
         self.redraw_lines()
@@ -147,6 +161,17 @@ class Reversi:
                                 self.col_multiplier/2-2)
             
 
+    def draw_valid_moves(self, moves):
+        for key in moves.keys():
+            pos = int(key)
+            row = pos // 8
+            col = pos - row * 8
+            pygame.draw.circle(self.screen, (128, 128, 128),
+                               (row * self.row_multiplier + (self.col_multiplier/2) + self.game_offset_x,
+                                col * self.col_multiplier + (self.col_multiplier/2) + self.game_offset_y),
+                                self.col_multiplier/2-2, 2)
+        pygame.display.update()
+            
 
     def start(self):
         self.server.set_name("TechCowboy")
@@ -157,10 +182,6 @@ class Reversi:
         self._rows = 8
         self._columns = 8
 
-        
-
-
-        
         self.server.refresh_data()
 
         if not self.server.connected:
@@ -204,15 +225,18 @@ class Reversi:
                 self.redraw_board()
                       
                 moves = self.server.get_valid_moves()
+                
+                self.draw_valid_moves(moves)
+                
                 #for key in moves.keys():
                 #    print(f"{key}  {moves[key]} | ", end='')
                     
                 #print()
                 
                 if mouse_pos != (-1,-1):
-                    print(mouse_pos)
                     row = (int) ((mouse_pos[0] - self.game_offset_x) / self.col_multiplier)
                     col = (int) ((mouse_pos[1] - self.game_offset_y) / self.row_multiplier)
+                    print(f"click: {row}, {col}")
                     self.server.put_move(row,col)
                 
                 
@@ -227,6 +251,6 @@ class Reversi:
         pygame.quit()
 
 if __name__ == '__main__':
-    MY_GAME = Reversi()
+    MY_GAME = Reversi(ip)
     MY_GAME.start()
     

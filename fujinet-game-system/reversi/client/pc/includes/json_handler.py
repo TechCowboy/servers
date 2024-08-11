@@ -22,6 +22,7 @@ class json_handler:
         self.key_move = 'm'
         self.key_board = 'bd'
         self.key_timer = 'm'
+        self.key_score = 'sc'
          
     def set_table(self, table):
         self.table = table
@@ -85,6 +86,9 @@ class json_handler:
     
     def get_active_player(self):
         return self.json_data[self.key_active_player]
+    
+    def get_score(self, player_num):
+        return  self.json_data[self.key_players][player_num][self.key_score]
     
     def get_valid_moves(self):
         valid_moves = None

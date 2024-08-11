@@ -1,13 +1,10 @@
 # Reversi/Othello Server
-This is an 
-
-Othello server written in GO. This was adapted from Eric Carr's 5 card stud server.  
-The game logic was borrowed from the z8ddk example of othello.
+This is an Othello server written in GO. This was adapted from Eric Carr's 5 card stud server.  
 
 It currently provides:
 * Multiple concurrent games (tables) via the `?table=[Alphanumeric value]` url parameter
-* Bots that simulate players (They will check, bet, raise, and fold based on combination of random/simple decision logic)
-* Auto moves for players that do not move in time (fold, check, or forced post)
+* Bots that simulate players 
+* Auto moves for players that do not move in time 
 * Auto drops players that have not interacted with the server after some time (timed out)
 
 ## Accessing the Game Server API

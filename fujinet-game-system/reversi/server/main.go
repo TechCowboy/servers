@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"net"
 
 	"github.com/gin-gonic/gin"
 )
@@ -70,10 +71,35 @@ func main() {
 	router.GET("/tables", apiTables)
 	router.GET("/updateLobby", apiUpdateLobby)
 
+
 	//	router.GET("/REFRESHLOBBY", apiRefresh)
 
 	initializeGameServer()
 	initializeTables()
+
+	ifaces, err := net.Interfaces()
+	if err != nil {
+
+	}
+	// handle err
+	for _, i := range ifaces {
+    	addrs, err := i.Addrs()
+		if err != nil {
+
+		}
+    	// handle err
+    	for _, addr := range addrs {
+        	var ip net.IP
+        	switch v := addr.(type) {
+        		case *net.IPNet:
+                	ip = v.IP
+        		case *net.IPAddr:
+                	ip = v.IP
+        	}
+        // process IP address
+		log.Printf("%s\n", ip.String())
+    }
+}
 
 	router.Run(":" + port)
 }

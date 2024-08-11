@@ -513,7 +513,7 @@ func (state *GameState) endGame(abortGame bool) {
 	// Hand rank details
 	// Rank: SF, 4K, FH, F, S, 3K, 2P, 1P, HC
 
-	log.Printf("Ending Game!\n")
+	log.Printf("*****Ending Game!*****\n")
 	state.gameOver = true
 	state.ActivePlayer = -1
 
@@ -618,6 +618,7 @@ func (state *GameState) runGameLogic() {
 
 	// If only one player is left, just end the game now
 	if playersLeft == 1 {
+		log.Printf("********* playersLeft == 1\n")
 		state.endGame(false)
 		return
 	}
@@ -713,6 +714,7 @@ func (state *GameState) clientLeave() {
 	// If the last player dropped, stop the game and update the lobby
 	if playersLeft == 0 {
 		state.endGame(true)
+		log.Printf("*************** inactive players\n")
 		state.dropInactivePlayers(false, false)
 		return
 	}
@@ -976,6 +978,7 @@ func (state *GameState) createClientState() *GameState {
 
 	if state.gameOver ||
 		len(state.Players) < 2 {
+		log.Printf("*********** gameover: %d  #Players: %d\n", state.gameOver, len(state.Players))
 		state.ActivePlayer = -1
 	}
 
