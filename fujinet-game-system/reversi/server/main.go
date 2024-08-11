@@ -78,16 +78,18 @@ func main() {
 	initializeTables()
 
 	ifaces, err := net.Interfaces()
+	// handle err
 	if err != nil {
 
 	}
-	// handle err
+	
 	for _, i := range ifaces {
     	addrs, err := i.Addrs()
+		// handle err
 		if err != nil {
 
 		}
-    	// handle err
+    	
     	for _, addr := range addrs {
         	var ip net.IP
         	switch v := addr.(type) {

@@ -59,15 +59,23 @@ class Poker(object):
         common_vars.player_purse.append([])
     
     url = 'https://5card.carr-designs.com'
+    #url = 'http://localhost:8080'
 
     common_vars.server = json_handler(url)
 
+
+    common_vars.server.set_name("TechCowboy")
+    common_vars.server.get_tables()
+
+    common_vars.server.set_table(common_vars.server.tables[0]['t'])
+
+    #common_vars.server.set_players(8)
+
+    common_vars.server.refresh_data()
     if not common_vars.server.connected:
         print(f"{url} is down")
         exit(-1)
     
-    common_vars.server.set_table("NORM")
-    common_vars.server.set_players(8)
     
     common_vars.button_image_width  = image_db.get_image(IMAGE_PATH_BUTTONS + INACTIVE_BUTTON_FILENAME).get_width()
     common_vars.button_image_height = image_db.get_image(IMAGE_PATH_BUTTONS + INACTIVE_BUTTON_FILENAME).get_height()
@@ -225,6 +233,7 @@ class Poker(object):
    
    
         while common_vars.hand_in_progress and not common_vars.done:
+
             event_handler()
             data_change = common_vars.server.refresh_data()
             
@@ -235,6 +244,7 @@ class Poker(object):
             if (not data_change) and (not first_time):
                 time.sleep(0.5)
                 continue
+            
             
             active_player = common_vars.server.get_active_player()
         
@@ -257,6 +267,7 @@ class Poker(object):
             last_buttons = buttons
             common_vars.round = current_round
             
+            
             for i in range(common_vars.num_players):
                 common_vars.player_fold[i] = common_vars.server.get_fold(i)
                 common_vars.player_bet[i]  = common_vars.server.get_bet(i)
@@ -277,6 +288,9 @@ class Poker(object):
                 message1 = common_vars.text_font.render('Round: {0}'.format(
                     common_vars.round), False, YELLOW_COLOR)  
                 common_vars.screen.blit(message1, (x_pos, y_pos))
+                # Update the content of the display
+                pygame.display.flip()            
+
                                 
             max_cards = 0
             for player_num in range(common_vars.num_players):
@@ -285,7 +299,7 @@ class Poker(object):
                     max_cards = m
                 draw_name(common_vars.screen, player_num)
             
-            slow_draw = first_time
+            slow_draw  = first_time
             first_time = False
             
             for dealing_card_num in range(max_cards):
@@ -310,8 +324,10 @@ class Poker(object):
                             
                 draw_pot(common_vars.screen)
                 
+                # Update the content of the display
+                pygame.display.flip()
             # Update the content of the display
-            pygame.display.flip()            
+            pygame.display.flip() 
 
         # end while hand in progress
 
@@ -327,6 +343,8 @@ class Poker(object):
             for i in range(100):
                 time.sleep(0.1)
                 event_handler()
+                if common_vars.done:
+                    break
             print(f"New game")
     #end while play again
     print("Done.")
