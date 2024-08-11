@@ -21,6 +21,7 @@ class json_handler:
         self.key_name = 'n'
         self.key_move = 'm'
         self.key_board = 'bd'
+        self.key_timer = 'm'
          
     def set_table(self, table):
         self.table = table
@@ -37,10 +38,11 @@ class json_handler:
             request = self.url+"/state?player="+self.my_name+"&table="+self.table
             response = requests.get(request)
             self.json_data = json.loads(response.text)
+            print(self.json_data)
             self.data_change = not (self.last_data == response.text)
             self.last_data = response.text;
-            if self.data_change:
-                print(response.text)
+            #if self.data_change:
+            #    print(response.text)
             self.connected = True
         except Exception as e:
             print(f"error: {e}")
@@ -49,13 +51,17 @@ class json_handler:
     
     def get_board(self):
         return self.json_data[self.key_board]
+    
+    def get_move_time(self):
+        return self.json_data[self.key_timer]
 
-    def send_action(self, action):
+    def put_move(self, row, col):
         success = True
+        action = f":\"{row*8+col}\""
         try:
             request = self.url+"/move/"+action+"?player="+self.my_name+"&table="+self.table
+            print(request)
             response = requests.get(request)
-            print(f"***send_action: {action}")
             self.json_action_data = json.loads(response.text)
             self.connected = True
         except:
@@ -80,7 +86,7 @@ class json_handler:
     def get_active_player(self):
         return self.json_data[self.key_active_player]
     
-    def get_valid_buttons(self):
+    def get_valid_moves(self):
         valid_moves = None
         
         moves = {}
@@ -96,5 +102,7 @@ class json_handler:
                 no_error=False     
         
         return moves
+    
+
     
     

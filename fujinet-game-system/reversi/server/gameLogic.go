@@ -26,8 +26,8 @@ const FIRST_TURN = 1
 const ANONYMOUS_CLIENT = -1
 
 const MOVE_TIME_GRACE_SECONDS = 60
-const BOT_TIME_LIMIT = time.Second * time.Duration(3)
-const PLAYER_TIME_LIMIT = time.Second * time.Duration(30)
+const BOT_TIME_LIMIT = time.Second * time.Duration(5)
+const PLAYER_TIME_LIMIT = time.Second * time.Duration(60)
 
 const ENDGAME_TIME_LIMIT = time.Second * time.Duration(39)
 const NEW_ROUND_FIRST_PLAYER_BUFFER = time.Second * time.Duration(1)
@@ -55,6 +55,9 @@ type validMove struct {
 type Move struct {
 	Row, Col int
 }
+
+var noMoveArray []validMove
+var noMove validMove
 
 type Status int64
 
@@ -207,9 +210,11 @@ func (state *GameState) calc_score() {
 
 		player.Score = 0
 		for i := 0; i < BOARD_SIZE*BOARD_SIZE; i++ {
+
 			if state.board[i].cell == player.color {
 				player.Score += 1
 			}
+
 			if state.board[i].cell != CELL_EMPTY {
 				all_total += 1
 			}
@@ -262,7 +267,6 @@ func display_board(state *GameState) {
 	log.Printf("%s 12345678", board)
 
 }
-
 
 func display_moves(state *GameState, validMoves []validMove) {
 
@@ -321,9 +325,9 @@ func display_moves(state *GameState, validMoves []validMove) {
 
 }
 
-
 // ApplyMove applies a move to the board
 func (state *GameState) ApplyMove(row int, col int, player_color Cell) {
+
 	var opponent_color = CELL_BLACK
 
 	state.board[row*BOARD_SIZE+col].cell = player_color
@@ -353,6 +357,11 @@ func (state *GameState) newGame() {
 
 	state.gameOver = false
 	lastTurn = -1
+
+	noMove.Move = ""
+	noMove.Name = "None"
+
+	noMoveArray = append(noMoveArray, noMove)
 
 	bc := board_cell{cell: CELL_EMPTY}
 	for cell := 0; cell < 64; cell++ {
@@ -400,7 +409,7 @@ func (state *GameState) newGame() {
 
 	state.LastResult = ""
 	state.Turn = FIRST_TURN
-
+	state.resetPlayerTimer(true)
 }
 
 /*
@@ -568,8 +577,9 @@ func (state *GameState) runGameLogic() {
 	if state.ActivePlayer >= 0 {
 		PlayerName = state.Players[state.ActivePlayer].Name
 	}
+	state.ValidMoves = noMoveArray
 
-	log.Printf("****runGameLogic  Turn:%d  ActivePlayer:%d   %s****\n", state.Turn, state.ActivePlayer, PlayerName)
+	log.Printf("****runGameLogic  Turn:%d  ActivePlayer:%d   %s  TIMER:%d****\n", state.Turn, state.ActivePlayer, PlayerName, int(time.Until(state.moveExpires).Seconds()))
 	state.playerPing()
 
 	// We can't play a game until there are at least 2 players
@@ -612,6 +622,12 @@ func (state *GameState) runGameLogic() {
 		return
 	}
 
+	if state.ActivePlayer == state.clientPlayer {
+		state.ValidMoves = state.getValidMoves()
+	} else {
+		state.ValidMoves = noMoveArray
+	}
+
 	// Check if we should start the next game. One of the following must be true
 
 	// Return if the move timer has not expired
@@ -619,7 +635,7 @@ func (state *GameState) runGameLogic() {
 	if state.ActivePlayer == -1 || state.Players[state.ActivePlayer].Status != STATUS_LEFT {
 		moveTimeRemaining := int(time.Until(state.moveExpires).Seconds())
 
-		if moveTimeRemaining > 0 {
+		if moveTimeRemaining >= 0 {
 			log.Printf("runGameLogic moveTimeRemaining > 0 - exit\n")
 			return
 		}
@@ -630,7 +646,6 @@ func (state *GameState) runGameLogic() {
 		log.Printf("runGameLogic ActivePlayer < 0 - exit\n")
 		return
 	}
-	log.Println("Normal exit")
 }
 
 // Drop players that left or have not pinged within the expected timeout
@@ -747,12 +762,11 @@ func (state *GameState) performMove(move string, internalCall ...bool) bool {
 	state.calc_score()
 	state.Turn++
 
-	state.nextValidPlayer()
-
 	return true
 }
 
 func (state *GameState) resetPlayerTimer(newRound bool) {
+	log.Printf(">>>>resetPlayerTimer")
 	timeLimit := PLAYER_TIME_LIMIT
 
 	if state.Players[state.ActivePlayer].isBot {
@@ -764,30 +778,88 @@ func (state *GameState) resetPlayerTimer(newRound bool) {
 	}
 
 	state.moveExpires = time.Now().Add(timeLimit)
+	state.MoveTime = int(time.Until(state.moveExpires).Seconds())
 }
 
 func (state *GameState) nextValidPlayer() {
 	// Move to next player
-	state.ActivePlayer = (state.ActivePlayer + 1) % len(state.Players)
 
+	log.Printf(">>> next player\n")
+	state.ActivePlayer = (state.ActivePlayer + 1) % len(state.Players)
+	state.resetPlayerTimer(false)
 	// Skip over player if not in this game (joined late / folded)
 	for state.Players[state.ActivePlayer].Status != STATUS_PLAYING {
 		state.ActivePlayer = (state.ActivePlayer + 1) % len(state.Players)
+		state.resetPlayerTimer(false)
 	}
-	state.resetPlayerTimer(false)
+
 }
 
-
 func (state *GameState) isValidMove(move string) bool {
+	var temp string
 
-	moves := state.getValidMoves()
-	for i :=0; i<len(moves); i++ {
-		if move == moves[i].Move {
+	for i := 0; i < len(state.ValidMoves); i++ {
+
+		temp = move
+		if move == state.ValidMoves[i].Move {
+			temp = fmt.Sprintf("%s == ", temp)
+		} else {
+			temp = fmt.Sprintf("%s != ", temp)
+		}
+		temp = fmt.Sprintf("%s %s", temp, state.ValidMoves[i].Move)
+		log.Println(temp)
+		if move == state.ValidMoves[i].Move {
 			return true
 		}
 	}
 	return false
 }
+
+func (state *GameState) sortMovesByWeight(moves []validMove) []validMove {
+
+	/* Sort moves according to weight */
+	var sorted_moves []validMove
+	var weight []int
+
+	for i := 0; i < len(moves); i++ {
+		pos, err := strconv.Atoi(moves[i].Move)
+		if err != nil {
+			log.Printf("Error in conversion")
+		}
+		weight = append(weight, weight_board[pos])
+	}
+
+	continue_sort := len(moves) > 0
+
+	for continue_sort {
+		var max = weight[0]
+		var max_index = 0
+
+		for i := 1; i < len(moves); i++ {
+			if weight[i] > max {
+				max = weight[i]
+				max_index = i
+			}
+		}
+
+		sorted_moves = append(sorted_moves, moves[max_index])
+
+		// Using append function to combine two slices
+		// first slice is the slice of all the elements before the given index
+		// second slice is the slice of all the elements after the given index
+		// append function appends the second slice to the end of the first slice
+		// returning a slice, so we store it in the form of a slice
+		moves = append(moves[:max_index], moves[max_index+1:]...)
+		weight = append(weight[:max_index], weight[max_index+1:]...)
+
+		continue_sort = len(moves) > 0
+
+	}
+
+	return sorted_moves
+
+}
+
 /***********************************************
  * Calculates which squares are valid moves    *
  * for player. Valid moves are recorded in the *
@@ -803,9 +875,6 @@ func (state *GameState) getValidMoves() []validMove {
 	var opponent_color Cell = CELL_WHITE
 	var move validMove
 	var moves []validMove
-	var sorted_moves []validMove
-	var weight []int
-
 
 	if state.ActivePlayer == -1 {
 		return moves
@@ -873,12 +942,19 @@ func (state *GameState) getValidMoves() []validMove {
 							/*  then we have a valid move          */
 							if state.board[x+y*BOARD_SIZE].cell == player_color {
 								//log.Printf("valid move: %d [%d,%d]\n", row*BOARD_SIZE+col, row+1, col+1)
-
-								move.Move = strconv.Itoa(row*BOARD_SIZE + col)
-								move.Name = strconv.Itoa(row+1) + "," + strconv.Itoa(col+1)
-
-								moves = append(moves, move) /* Mark as valid */
-								weight = append(weight, weight_board[row*BOARD_SIZE+col])
+								existing_move := false
+								Move := strconv.Itoa(row*BOARD_SIZE + col)
+								for i := 0; i < len(moves); i++ {
+									if moves[i].Move == Move {
+										existing_move = true
+										break
+									}
+								}
+								if !existing_move {
+									move.Move = strconv.Itoa(row*BOARD_SIZE + col)
+									move.Name = strconv.Itoa(row+1) + "," + strconv.Itoa(col+1)
+									moves = append(moves, move) /* Mark as valid */
+								}
 								break /* Go check another square    */
 							}
 						}
@@ -888,42 +964,7 @@ func (state *GameState) getValidMoves() []validMove {
 		} // for col
 	} // for row
 
-	/* Sort moves according to weight */
-/*
-	var continue_sort = len(moves) > 0
-
-	for continue_sort {
-		var max = weight[0]
-		var max_index = 0
-
-		for i := 1; i < len(moves); i++ {
-			if weight[i] > max {
-				max = weight[i]
-				max_index = i
-			}
-		}
-
-		sorted_moves = append(sorted_moves, moves[max_index])
-
-		// Using append function to combine two slices
-		// first slice is the slice of all the elements before the given index
-		// second slice is the slice of all the elements after the given index
-		// append function appends the second slice to the end of the first slice
-		// returning a slice, so we store it in the form of a slice
-		moves = append(moves[:max_index], moves[max_index+1:]...)
-		weight = append(weight[:max_index], weight[max_index+1:]...)
-
-		continue_sort = len(moves) > 0
-
-	}
-*/
-	sorted_moves = moves
-	//display_moves(state, sorted_moves)
-
-	for i:=0; i<len(sorted_moves); i++ {
-		log.Printf("%s  %s\n", sorted_moves[i].Move, sorted_moves[i].Name)
-	}
-	return sorted_moves
+	return moves
 }
 
 // Creates a copy of the state and modifies it to be from the
@@ -948,35 +989,54 @@ func (state *GameState) createClientState() *GameState {
 		state.Viewing = 0
 	}
 
-	// Determine valid moves for this player (if their turn)
-	//if state.ActivePlayer == 0 {
+	// Determine if there are no valid moves for this player
+	// and automatically move to the next player if so
 
 	state.ValidMoves = state.getValidMoves()
 
-	if len(state.ValidMoves) == 0 {
-		state.nextValidPlayer()
-		return state
+	log.Printf("valid moves")
+	for i := 0; i < len(state.ValidMoves); i++ {
+		log.Printf("%s %s", state.ValidMoves[i].Move, state.ValidMoves[i].Name)
 	}
-
-	//}
 
 	// Determine the move time left. Reduce the number by the grace period, to allow for plenty of time for a response to be sent back and accepted
 	state.MoveTime = int(time.Until(state.moveExpires).Seconds())
 	log.Printf("state.MoveTime: %d\n", state.MoveTime)
 
-	// if the player has no moves, just go to the next player
-	if len(state.ValidMoves) == 0 {
-		log.Printf("ActivePlayer No moves")
-		state.nextValidPlayer()
-	} else {
-		// if the player times out, force a move the best move
-		if (state.ActivePlayer >= 0) && (state.MoveTime <= 0) {
-			log.Printf("state ActivePlayer >=0 && MoveTime <= 0\n")
-			if len(state.ValidMoves) > 0 {
-				log.Printf("Force %s to moved: %s", state.Players[state.ActivePlayer].Name, state.ValidMoves[0].Name)
-				state.performMove(state.ValidMoves[0].Move)
+	// if the player times out, force a move the best move
+	if (state.ActivePlayer >= 0) && (state.MoveTime < 0) {
+		log.Printf("state ActivePlayer >=0 && MoveTime < 0\n")
+		// if there are moves, then [0] is the best move
+		if len(state.ValidMoves) > 0 {
+			weighted_moves := state.sortMovesByWeight(state.ValidMoves)
+
+			// add a little randomness for variety
+			random_selection, err := rand.Int(rand.Reader, big.NewInt(10))
+			if err != nil {
+				log.Printf("Error getting random selection")
+				random_selection = big.NewInt(0)
 			}
+
+			selected_move, err := strconv.Atoi(random_selection.String())
+			if err != nil {
+				selected_move = 0
+			}
+
+			selected_move = selected_move - 5
+
+			if selected_move > len(weighted_moves) {
+				selected_move = len(weighted_moves) - 1
+			}
+			if selected_move < 0 {
+				selected_move = 0
+			}
+
+			log.Printf("%d Force %s to moved: %s", selected_move, state.Players[state.ActivePlayer].Name, weighted_moves[selected_move].Name)
+			state.performMove(weighted_moves[selected_move].Move)
+		} else {
+			log.Printf(("Force pass"))
 		}
+		state.nextValidPlayer()
 	}
 	// Compute hash - this will be compared with an incoming hash. If the same, the entire state does not
 	// need to be sent back. This speeds up checks for change in state

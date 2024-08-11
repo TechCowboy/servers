@@ -12,9 +12,12 @@ global done
 
 def event_handler():
     
+    mousepos = (-1,-1)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             done = True
 
-            
+        if event.type == pygame.MOUSEBUTTONUP:
+          mousepos = pygame.mouse.get_pos()           
 
+    return mousepos

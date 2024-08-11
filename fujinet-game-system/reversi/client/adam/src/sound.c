@@ -20,11 +20,15 @@ void sound_chime(void)
 
 void sound_mode_change(void)
 {
-    smartkeys_sound_play(SOUND_POSITIVE_CHIME);
+    smartkeys_sound_play(SOUND_TYPEWRITER_CLACK);
 }
 
 void sound_confirm(void)
 {
-    smartkeys_sound_play(SOUND_LONG_BEEP);
+    smartkeys_sound_play(SOUND_CONFIRM);
 }
 
+void sound_failure(void)
+{
+    smartkeys_sound_play(SOUND_OOPS);
+}

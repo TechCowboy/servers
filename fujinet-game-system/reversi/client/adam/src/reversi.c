@@ -14,7 +14,6 @@
 #include "io.h"
 #include "json_handler.h"
 
-
 /*
 DefPatternTable EQU     0h
 DefNameTable    EQU     1800h
@@ -28,10 +27,12 @@ DefSprPatTable  EQU     3800h
 
 unsigned char board[768];
 char query[50] = {""};
-
-
-
-
+char url[256];
+char message[32];
+char player1_color;
+char player2_color;
+char my_color;
+char my_number;
 
 #define LINE_START  7
 #define LINE_STOP  17
@@ -47,6 +48,8 @@ int black_line = LINE_START;
 
 #define TIME_X 27
 #define TIME_Y 1
+
+#define REVERSI_X 12
 
 #define CURSOR_TOP_LEFT      0
 #define CURSOR_MIDDLE_LEFT   1
@@ -73,8 +76,8 @@ int print_trace(char *message);
 char my_name[16] = { "TechCowboy" };
 char black_player[16];
 char white_player[16];
-int game_type;
-
+int turn;
+char b[64];
 
 /* z88dk specific opt */
 #pragma printf = "%c %u"
@@ -104,9 +107,10 @@ int prtscr(char *b) __z88dk_fastcall;
 int handicap;
 char selfplay;		/* true if computer playing with itself */
 /* int h[4][2];	*/	/* handicap position table */
-int h[8];		/* handicap position table */
 char mine, his;		/* who has black (*) and white (@) in current game */
 char mefirst;		/* true if computer goes first in current game */
+int ap;
+int remaining_time;
 
 struct mt {
 		int x;
@@ -115,12 +119,27 @@ struct mt {
 		int s;
 	 };
 
-void debug_clrscr(void)
+void init_msx_graphics();
+
+void debug_start(void)
 {
 	vdp_color(BACKGROUND_COLOUR_TEXT);
 
 	vdp_set_mode(mode_2);
 	clrscr();
+	gotoxy(0,0);
+}
+
+void debug_end(void)
+{
+	char wait[10];
+	gets(wait);
+
+	init_msx_graphics();
+
+	vdp_color(BACKGROUND_COLOUR_GRAPHICS);
+	vdp_set_mode(mode_2);
+	prtbrd(b, mefirst, turn, remaining_time);
 }
 
 int print(int x, int y, char *message, bool blit)
@@ -326,58 +345,70 @@ bool getmov_local(char *b, int *column, int *row, char my_color)
 	int joy = 0;
 	int trig = 1;
 	//	int c;
-	int x, y;
+	int x, y, i;
 	char atari_output[32];
 	bool triggered = false;
+	bool moving=true;
 
-	movsprite(*column, *row, MOVING_COLOR);
-
-	joy = read_joystick(&trig);
-
-
-	if (joy & UP)
-		(*row)--;
-	if (joy & DOWN)
-		(*row)++;
-	if (joy & LEFT)
-		(*column)--;
-	if (joy & RIGHT)
-		(*column)++;
-
-	if (*row < 0)
-		*row = 7;
-
-	if (*row > 7)
-		*row = 0;
-
-	if (*column < 0)
-		*column = 7;
-
-	if (*column > 7)
-		*column = 0;
-
-	movsprite(*column, *row, MOVING_COLOR);
-
-
-	// SEND ACTION
-
-	if (trig == 0)
+	while(moving) 
 	{
-		sound_chime();
-		sound_chime();
-		triggered = true;
-
-		movsprite(*column, *row, SELECTED_COLOR);
-
-		if (is_valid_move(*column, *row))
+		for (i=0; i<4; i++)
 		{
-			triggered = true;
+			movsprite(*column, *row, MOVING_COLOR);
+
+			joy = read_joystick(&trig);
+
+			if (joy & UP)
+				(*row)--;
+			if (joy & DOWN)
+				(*row)++;
+			if (joy & LEFT)
+				(*column)--;
+			if (joy & RIGHT)
+				(*column)++;
+
+			moving =  joy & (UP | DOWN | LEFT | RIGHT | (trig==0));
+
+			if (*row < 0)
+				*row = 7;
+
+			if (*row > 7)
+				*row = 0;
+
+			if (*column < 0)
+				*column = 7;
+
+			if (*column > 7)
+				*column = 0;
+
+			movsprite(*column, *row, MOVING_COLOR);
+
+
+			// SEND ACTION
+
+			if (trig == 0)
+			{
+				sound_chime();
+				sound_chime();
+				triggered = true;
+
+				movsprite(*column, *row, SELECTED_COLOR);
+
+				if (is_valid_move(*column, *row))
+				{
+					triggered = true;
+					moving = false;
+					break;
+				}
+				else
+				{
+					print_info("*** Illegal Move ***");
+					sound_negative_beep();
+				}
+			}
+			csleep(4);
 		}
-		else
-		{
-			print_info("*** Illegal Move ***");
-			sound_negative_beep();
-		}
+
 	}
 
 	return triggered;
@@ -394,7 +425,11 @@ void init_msx_graphics()
 
 void newbrd()
 {
+	int i;
 	memcpy(board, newboard, sizeof(newboard));
+	for(i=0; i<64; i++)
+		b[i] = EMPTY;
+
 }
 
 int cntbrd(char *b, char color)
@@ -413,8 +448,22 @@ void prtbrd(char *b, bool mefirst, int turn, int remaining_time)
 	unsigned int addr;
 	int x,y, pos;
 	char turn_str[32];
-	char black_count[3], 
-	     white_count[3];
+	char reversi_top[8];
+	char reversi_bottom[8];
+	char black_count[3],
+		white_count[3];
+
+	if (mefirst && (ap == 0))
+	{
+		snprintf(reversi_top, sizeof(reversi_top), "%s", black_reversi);
+		snprintf(reversi_bottom, sizeof(reversi_bottom), "%s", mirror_white_reversi);
+	} else
+	{
+		snprintf(reversi_top, sizeof(reversi_top), "%s", white_reversi);
+		snprintf(reversi_bottom, sizeof(reversi_bottom), "%s", mirror_black_reversi);
+	}
+	print(REVERSI_X, 0, reversi_top, false);
+	print(REVERSI_X, 1, reversi_bottom, false);
 
 	snprintf(turn_str, sizeof(turn_str), "%2d", turn);
 	print(TURN_X, TURN_Y, turn_str, false);
@@ -608,8 +657,16 @@ void showTableSelectionScreen()
 
 void help(void)
 {
+	unsigned char key;
+	bool stay = true;
+
+	vdp_color(BACKGROUND_COLOUR_TEXT);
+
+	vdp_set_mode(mode_2);
+
+	gotoxy(0,0);
 	cprintf(
-		__DATE__ __TIME__ "\n"
+		__DATE__ "  " __TIME__ "\n"
 				 " #FUJINET GAME SERVER REVERSI \n"
 				 "        by Norman Davie\n\n"
 				 " Reversi is a strategy game\n"
@@ -623,35 +680,119 @@ void help(void)
 				 "\n\n"
 				 "BLACK is always the FIRST\n"
 				 "player\n"
-				 "Press fire to start\n");
+				 "\n\n\n"
+				 "1=RETURN");
 
-	while (!wait_for_fire())
-		csleep(1);
+
+	stay = true;
+	while(stay)
+	{
+		key = eos_read_keyboard();
+
+		switch (key)
+		{
+		case SMARTKEY_I:
+			sound_confirm();
+			stay=false;
+			return;
+		case SMARTKEY_II:
+			sound_negative_beep();
+			break;
+		case SMARTKEY_III:
+			sound_negative_beep();
+			break;
+		case SMARTKEY_IV:
+			sound_negative_beep();
+			break;
+		case SMARTKEY_VI:
+			sound_negative_beep();
+			break;
+		default:
+			sound_negative_beep();
+			break;
+		}
+	}
+	init_msx_graphics();
+	clrscr();
+	newbrd();
+	get_board(b, sizeof(b));
+	prtbrd(b, mefirst, turn, 0);
 }
 
+void read_all_data(void)
+{
+	clrscr();
+	vdp_color(BACKGROUND_COLOUR_TEXT);
+
+	vdp_set_mode(mode_2);
+
+	snprintf(message, sizeof(message), "Waiting for connection...");
+	gotoxy(16 - strlen(message) / 2, 12);
+	cprintf(message);
+	while (!is_connected())
+	{
+		refresh_data();
+		csleep(10);
+	}
+	clrscr();
+	snprintf(message, sizeof(message), "Connected!");
+	gotoxy(16 - strlen(message) / 2, 12);
+
+	csleep(40);
+
+	turn = get_turn();
+	player1_color = get_player_color(0);
+	player2_color = get_player_color(1);
+
+	if (player1_color == BLACK)
+	{
+		get_player_name(0, black_player);
+		get_player_name(1, white_player);
+	}
+	else
+	{
+		get_player_name(0, white_player);
+		get_player_name(1, black_player);
+	}
+
+	if (stricmp(black_player, my_name) == 0)
+	{
+		my_color = player1_color;
+		my_number = 0;
+		mefirst = true;
+	}
+	else
+	{
+		my_color = player2_color;
+		my_number = 1;
+		mefirst = false;
+	}
+
+	init_msx_graphics();
+	newbrd();
+
+	get_board(b, sizeof(b));
+
+	prtbrd(b, mefirst, turn, 0);
+
+}
 
 int main()
 {
-	char b[64];
-	int column,row, ap, turn;
+	int column,row;
 	char key;
-	char message[32];
 	int waiting;
 	int connection = 0;
 	int last_error, bytes_waiting;
 	char waitingstr[] = {"|/-\\"};
 	bool game_in_progress = true;
-	char url[256];
 	FUJI_TIME adjust, future_time;
-	int timer=400;
+	int timer=0;
 	bool send_move = false;
-	char player1_color;
-	char player2_color;
-	char my_color;
-	char my_number;
-	int remaining_time;
 	int i;
 	bool restart = false;
+	bool leave_table = true;
+	bool first_time_move = true;
 
 	memset(&adjust, 0, sizeof(FUJI_TIME));
 
@@ -659,116 +800,147 @@ int main()
 
 	for(i=0; i<sizeof(b); i++)
 		b[i] = EMPTY;
-	
-	h[0] = h[1] = h[4] = h[7] = 0;
-	h[2] = h[3] = h[5] = h[6] = 7;
 
 	sound_init();
-	//smartkeys_set_mode();
-
-	vdp_color(BACKGROUND_COLOUR_TEXT);
-
-	vdp_set_mode(mode_2);
-
 
 	sound_mode_change();
-
-	smartkeys_display("HELP", NULL, NULL, NULL, NULL, "QUIT");
-
-	clrscr();
-
-	//sound_chime();
 
 	vdp_color(BACKGROUND_COLOUR_GRAPHICS);
 	vdp_set_mode(mode_2);
 
-
 	strncpy2(url, "http://192.168.2.184:8080", sizeof(url));
+
+	reversi_init(url);
+	set_name(my_name);
+
+	set_table("bot1a");
 
 	do 
 	{
 
+		read_all_data();
 
-		reversi_init(url);
-		set_name(my_name);
-
-		set_table("bot1a");
-		refresh_data();
-
-		turn = get_turn();
-		player1_color = get_player_color(0);
-		player2_color = get_player_color(1);
-
-		if (player1_color == BLACK)
-		{
-			get_player_name(0, black_player);
-			get_player_name(1, white_player);
-		} else
-		{
-			get_player_name(0, white_player);
-			get_player_name(1, black_player);
-		}
-
-		if (stricmp(black_player, my_name) == 0)
-		{
-			my_color = player1_color;
-			my_number = 0;
-			mefirst = true;
-		} else
-		{
-			my_color = player2_color;
-			my_number = 1;
-			mefirst = false;
-		}
-
-		init_msx_graphics();
-		newbrd();
-
-		prtbrd(b, mefirst, turn, 0);
 		io_time(&future_time);
-		//printf("future time: %02d:%02d:%02d\n", future_time.hour, future_time.minute, future_time.second);
+
 		timer = 0;
 		restart = false;
+		game_in_progress = true;
+		first_time_move = true;
+
 		while (game_in_progress)
 		{
 			timer--;
+
+			//key = eos_read_keyboard();
+			key = 0;
+			switch (key)
+			{
+			case SMARTKEY_I:
+				sound_confirm();
+				help();
+				break;
+			case SMARTKEY_II:
+				sound_negative_beep();
+				break;
+			case SMARTKEY_III:
+				sound_negative_beep();
+				break;
+			case SMARTKEY_IV:
+				sound_negative_beep();
+				break;
+			case SMARTKEY_VI:
+				sound_confirm();
+				leave_table = true;
+				break;
+			default:
+				break;
+			}
+
 			if (is_my_turn(my_number))
 			{
-				showsprite(true);
-				csleep(5);
-				send_move = getmov_local(b, &column, &row, my_color);
+				if (first_time_move)
+				{
+					get_board(b, sizeof(b));
+
+					prtbrd(b, mefirst, turn, remaining_time);
+
+					sound_chime();
+
+					showsprite(true);
+					first_time_move = false;
+				}
+
+				csleep(1);
+				if (! send_move)
+				{
+					send_move = getmov_local(b, &column, &row, my_color);
+				}
 
 				if (send_move)
 				{
-					sound_confirm();
-					showsprite(false);
-					put_move(column, row, my_color);
-					io_time(&future_time);
-					timer = 0;
+					if (is_connected())
+					{
+						sound_confirm();
+
+						showsprite(false);
+
+						put_move(column, row, my_color);
+						io_time(&future_time);
+						timer = 0;
+						first_time_move = true;
+						send_move = false;
+					} else
+					{
+						read_all_data();
+					}
 				}
-			} else
+
+			} else // end my turn
+			{
+
 				showsprite(false);
+				first_time_move = true;
+			}
 
 			if (timer <= 0)
 			{
-				timer = 50;
+				timer = 10;
 
 				if (time_reached(&future_time))
 				{
-					add_time(&future_time, &future_time, &adjust);
 					refresh_data();
-					
+
+					// only update the time if we're connected
+					if (is_connected())
+					{
+						add_time(&future_time, &future_time, &adjust);
+					} else
+					{
+						sound_failure();
+						read_all_data();
+					}
+
 					turn = get_turn();
 					if (turn == 0)
 					{
 						newbrd();
 					}
+
 					get_board(b, sizeof(b));
 					ap = get_active_player();
 
 					remaining_time = get_remaining_time();
 
 					prtbrd(b, mefirst, turn, remaining_time);
+
+					// if we're not connected, then let the user know
+					if (! is_connected())
+					{
+						read_all_data();
+
+						ap = -1;
+					}
+
 					switch(ap)
 					{
 						case 0: 
@@ -779,27 +951,26 @@ int main()
 							break;
 						default:
 							snprintf(message, sizeof(message), "<<COMMUNICATION ERROR>>");
-							restart = true;
+							//restart = true;
 							break;
 					}
 
 					print_info(message);
 
-					if (send_move)
-					{
-						io_time(&future_time);
-						timer = 0;
-					}
-					
 				} // time reached
+
+
 			} // timer <= 0
 			csleep(1);
 			if (restart)
+			{
 				break;
+			}
 		} // while game in progress
 
 
-	} while (game_in_progress);
+	} while (leave_table);
+
 
 	return 0;
 }

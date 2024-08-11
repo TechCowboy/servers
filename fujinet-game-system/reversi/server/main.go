@@ -126,8 +126,9 @@ func apiMove(c *gin.Context) {
 
 				if state.isValidMove(requested_move) {
 					state.performMove(requested_move)
+					state.nextValidPlayer()
 				} else {
-					log.Printf("Valid Move\n")
+					log.Printf("Not a Valid Move\n")
 				}
 				saveState(state)
 				state = state.createClientState()

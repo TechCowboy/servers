@@ -32,5 +32,6 @@ int put_move(int column, int row, char color);
 bool is_valid_move(int column, int row);
 bool is_my_turn(int my_number);
 int get_remaining_time(void);
+bool is_connected(void);
 
 #endif /* JSON_HANDLER */

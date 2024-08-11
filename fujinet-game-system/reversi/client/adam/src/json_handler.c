@@ -26,7 +26,8 @@ static int  _active_player = -1;
 static int  _move_time = 0;
 static int  _valid_moves[BOARD_SIZE*BOARD_SIZE];
 
-void debug_clrscr(void);
+void debug_start(void);
+void debug_end(void);
 
 int reversi_init(char *url_in)
 {
@@ -74,143 +75,174 @@ void set_num_players(int count)
 }
 
 
+bool is_connected(void)
+{
+    return _connected;
+}
+
+bool update_data(void)
+{
+    static bool first_time = true;
+    bool data_change = false;
+    int i, j, x, y, r;
+    char query[128];
 
 
+    _connected = true;
+    do
+    {
+
+        // board
+        if ((r = io_json_query("/bd", _pieces, sizeof(_pieces))) != 0)
+        {
+            sound_negative_beep();
+            debug_start();
+            cprintf("%s\n", query);
+            debug_end();
+            break;
+        }
+
+#ifdef NO_FUJI
+        strcpy(_pieces, ".................W.WWW....WBB.....BBB...........................");
+#endif
+
+        // turn
+        if ((r = io_json_query("/t", response, sizeof(response))) != 0)
+        {
+            sound_negative_beep();
+            debug_start();
+            cprintf("%s\n", query);
+            debug_end();
+            break;
+        }
+#ifdef NO_FUJI
+        if (_move_time < 2)
+            _turn += 1;
+#else
+        _turn = atoi(response);
+#endif
+        // active player
+        if ((r = io_json_query("/a", response, sizeof(response))) != 0)
+        {
+            sound_negative_beep();
+            debug_start();
+            cprintf("%s\n", query);
+            debug_end();
+            break;
+        }
+#ifdef NO_FUJI
+        if (_active_player)
+            _active_player = 0;
+        else
+            _active_player = 1;
+#else
+        _active_player = atoi(response);
+#endif
+
+        // last result
+        // if ((r = io_json_query("/l", _last_result, sizeof(_last_result))) != 0)
+        //{
+        //    sound_negative_beep();
+        //    break;
+        //}
+
+        // move time left
+        if ((r = io_json_query("/m", response, sizeof(response))) != 0)
+        {
+            sound_failure();
+            debug_start();
+            cprintf("%s\n", query);
+            debug_end();
+            break;
+        }
+
+#ifdef NO_FUJI
+        if (_move_time < 0)
+            _move_time = 30;
+        else
+            _move_time--;
+#else
+        _move_time = atoi(response);
+#endif
+        for (i = 0; i < 64; i++)
+        {
+            _valid_moves[i] = -1;
+
+            snprintf(query, sizeof(query), "/vm/%d/m", i);
+            // valid moves
+            if ((r = io_json_query(query, response, sizeof(response))) != 0)
+            {
+                break;
+            }
+
+            _valid_moves[i] = atoi(response);
+        }
+
+        for (i = 0; i < 2; i++)
+        {
+            snprintf(query, sizeof(query), "/pl/%d/n", i);
+
+            // players
+            if ((r = io_json_query(query, response, sizeof(response))) != 0)
+            {
+                sound_negative_beep();
+                debug_start();
+                cprintf("%s\n", query);
+                debug_end();
+            }
+            else
+            {
+#ifdef NO_FUJI
+                snprintf(response, sizeof(response), "Player%d", i);
+#endif
+
+                strncpy(_players[i], response, 128);
+            }
+
+            snprintf(query, sizeof(query), "/pl/%d/c", i);
+            // players
+            if ((r = io_json_query(query, response, sizeof(response))) != 0)
+            {
+                sound_negative_beep();
+                debug_start();
+                cprintf("%s\n", query);
+                debug_end();
+            }
+            else
+            {
+#ifdef NO_FUJI
+                if (i == 0)
+                    strcpy(response, "B");
+                else
+                    strcpy(response, "W");
+#endif
+                _player_colors[i] = response[0];
+            }
+        }
+
+        data_change = (!(_last_data == _pieces)) || first_time;
+
+        first_time = false;
+        _connected = true;
+    } while (false);
+
+
+    return data_change;
+}
 
 bool refresh_data(void)
 {
-static bool first_time = true;
-       bool data_change = false;
-       int i, j, x, y, r;
-       char query[128];
-
+    bool data_change = false;
+    int i;
+    
     snprintf(response, sizeof(response), "%s/state?player=%s&table=%s", _url, _my_name, _table);
     for (i = 0; i < sizeof(_pieces); i++)
         _pieces[i] = '\0';
 
     if (io_json_open(response) == 0)
     {
-        _connected = false;
-        do {
-
-            // board
-            if ((r = io_json_query("/bd", _pieces, sizeof(_pieces))) != 0)
-            {
-                sound_negative_beep();
-                break;
-            }
-
-#ifdef NO_FUJI
-            strcpy(_pieces, ".................W.WWW....WBB.....BBB...........................");
-#endif
-
-
-            // turn
-            if ((r = io_json_query("/t", response, sizeof(response))) != 0)
-            {
-                sound_negative_beep();
-                break;
-            }
-#ifdef NO_FUJI
-            if (_move_time < 2)
-                _turn += 1;
-#else
-            _turn = atoi(response);
-#endif
-            // active player
-            if ((r = io_json_query("/a", response, sizeof(response))) != 0)
-            {
-                sound_negative_beep();
-                break;
-            }
-#ifdef NO_FUJI
-            if (_active_player)
-                _active_player = 0;
-            else
-                _active_player = 1;
-#else           
-            _active_player = atoi(response);
-#endif
-
-            // last result
-            //if ((r = io_json_query("/l", _last_result, sizeof(_last_result))) != 0)
-            //{
-            //    sound_negative_beep();
-            //    break;
-            //}
-
-            // move time left
-            if ((r = io_json_query("/m", response, sizeof(response))) != 0)
-            {
-                sound_negative_beep();
-                break;
-            }
-
-#ifdef NO_FUJI
-            if (_move_time < 0)
-                _move_time = 30;
-            else
-                _move_time--;
-#else
-            _move_time = atoi(response);
-#endif
-            for (i = 0; i < 64; i++)
-            {
-                _valid_moves[i] = -1;
-
-                snprintf(query, sizeof(query), "/vm/%d/m", i);
-                // valid moves
-                if ((r = io_json_query(query, response, sizeof(response))) != 0)
-                {
-                    break;
-                }
-            
-                _valid_moves[i] = atoi(response);
-            }
-
-            for (i=0; i<2; i++)
-            {
-                snprintf(query, sizeof(query), "/pl/%d/n", i);
-
-                // players
-                if ((r = io_json_query(query, response, sizeof(response))) != 0)
-                {
-                    sound_negative_beep();
-                } else
-                {
-#ifdef NO_FUJI
-                    snprintf(response, sizeof(response), "Player%d", i);
-#endif
-
-                    strncpy(_players[i], response, 128);
-
-                }
-
-                snprintf(query, sizeof(query), "/pl/%d/c", i);
-                // players
-                if ((r = io_json_query(query, response, sizeof(response))) != 0)
-                {
-                    sound_negative_beep();
-                }
-                else
-                {
-#ifdef NO_FUJI
-                    if (i == 0)
-                        strcpy(response, "B");
-                    else
-                        strcpy(response, "W");
-#endif
-                    _player_colors[i] = response[0];
-
-                }
-            }
-
-
-            data_change = (!(_last_data == _pieces)) || first_time;
-
-            first_time = false;
-            _connected = true;
-        } while (false);
+        data_change = update_data();
+        io_json_close();
     }
 
 
@@ -266,6 +298,8 @@ int put_move(int column, int row, char color)
     snprintf(response, sizeof(response), "%s/move/:\"%d\"?player=%s&table=%s", _url, row*BOARD_SIZE+column, _my_name, _table);
     if (io_json_open(response) == 0)
     {
+        update_data();
+        io_json_close();
         return 0;
     }
     return 1;
@@ -277,7 +311,7 @@ bool is_valid_move_debug(int column, int row)
     bool valid = false;
     int i=0;
 
-    debug_clrscr();
+    debug_start();
 
     cprintf("column:%d row:%d looking for %d\n", column, row, position);
 
@@ -291,7 +325,7 @@ bool is_valid_move_debug(int column, int row)
 
     cprintf("returning %d\n", _valid_moves[i]);
 
-    gets("    ");
+    debug_end();
     return _valid_moves[i] != -1;
 }
 
@@ -309,7 +343,9 @@ bool is_valid_move(int column, int row)
     }
 
     return _valid_moves[i] != -1;
+    //is_valid_move_debug(column, row);
 }
+
 int get_remaining_time(void)
 {
     return _move_time;
