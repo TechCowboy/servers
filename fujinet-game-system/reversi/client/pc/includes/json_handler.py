@@ -107,6 +107,15 @@ class json_handler:
         
         return moves
     
-
-    
+    def is_valid_move(self, row, col):
+        valid_move = False
+        
+        pos = str(row*8+col)
+        for i in range(len(self.json_data[self.key_valid_moves])):
+            if pos in self.json_data[self.key_valid_moves][i][self.key_move]:
+                valid_move = True
+                break
+        
+        return valid_move
+            
     

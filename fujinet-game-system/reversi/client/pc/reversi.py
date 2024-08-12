@@ -5,6 +5,8 @@ import os
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import pygame
 
+#ip = "192.168.2.254"
+ip = "localhost"
 
 
 # Local imports
@@ -25,8 +27,6 @@ DIALOG_FONT = ('Helvetica', 20)
 
 
 global done
-#ip = "192.168.2.254"
-ip = "localhost"
 
 class Reversi:
     
@@ -98,6 +98,21 @@ class Reversi:
         textRect.center = (self.screen_width - textRect.width, textRect.height)
         self.screen.blit(text, textRect)
 
+        #********** message ************
+
+        text = self.font.render(self.server.get_last_result(), True, self.text_color_white, self.game_background)
+         
+        # create a rectangular object for the
+        # text surface object
+        textRect = text.get_rect()
+         
+        # set the center of the rectangular object.
+        textRect.center = (self.screen_width/2 - textRect.width/2, textRect.height*2)
+        self.screen.blit(text, textRect)
+
+
+        #************** Print Timer
+
         if self.ap >= 0:
             text = self.font.render(f"{self.server.get_move_time()}", True, self.text_color_black, self.game_background)
             score1 = self.font.render(f"{self.server.get_score(0)}", True, self.text_color_black, self.game_background)
@@ -159,7 +174,17 @@ class Reversi:
                                (row * self.row_multiplier + (self.col_multiplier/2) + self.game_offset_x,
                                 col * self.col_multiplier + (self.col_multiplier/2) + self.game_offset_y),
                                 self.col_multiplier/2-2)
-            
+
+    def draw_click(self, row, col):
+        
+
+        pygame.draw.circle(self.screen, (128, 128, 128),
+                           (row * self.row_multiplier + (self.col_multiplier/2) + self.game_offset_x,
+                            col * self.col_multiplier + (self.row_multiplier/2) + self.game_offset_y),
+                            self.row_multiplier/2-2)
+        pygame.display.update()
+ 
+ 
 
     def draw_valid_moves(self, moves):
         for key in moves.keys():
@@ -171,9 +196,12 @@ class Reversi:
                                 col * self.col_multiplier + (self.col_multiplier/2) + self.game_offset_y),
                                 self.col_multiplier/2-2, 2)
         pygame.display.update()
-            
+    
+    def beep(self):
+        print("\a")
 
     def start(self):
+        self.beep()
         self.server.set_name("TechCowboy")
         self.server.set_table("bot1a")
         #server.set_players(2)
@@ -183,6 +211,7 @@ class Reversi:
         self._columns = 8
 
         self.server.refresh_data()
+        last_board=""
 
         if not self.server.connected:
             print(f"{self.url} is down")
@@ -212,6 +241,9 @@ class Reversi:
                     continue
                 
                 self.board = self.server.get_board()
+                if self.board != last_board:
+                    self.beep()
+                    last_board = self.board
                 
                 timer = self.server.get_move_time()
                 self.ap = self.server.get_active_player()
@@ -236,10 +268,16 @@ class Reversi:
                 if mouse_pos != (-1,-1):
                     row = (int) ((mouse_pos[0] - self.game_offset_x) / self.col_multiplier)
                     col = (int) ((mouse_pos[1] - self.game_offset_y) / self.row_multiplier)
-                    print(f"click: {row}, {col}")
-                    self.server.put_move(row,col)
-                
-                
+                    print(f"mouse_pos: {mouse_pos} click: {row}, {col}  Move: {row*8+col}")
+                    self.draw_click(row,col)
+                    if self.server.is_valid_move(row,col):
+                        self.beep()
+                        self.server.put_move(row,col)
+                    else:
+                        self.beep()
+                        self.beep()
+                        self.beep()
+
                 
                 time.sleep(1)
                 

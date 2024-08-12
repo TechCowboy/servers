@@ -148,6 +148,7 @@ func initializeGameServer() {
 }
 
 var lastTurn int = -1
+var firstGame = true
 
 func createGameState(playerCount int, registerLobby bool) *GameState {
 
@@ -213,21 +214,25 @@ func (state *GameState) calc_score() {
 
 			if state.board[i].cell == player.color {
 				player.Score += 1
-			}
-
-			if state.board[i].cell != CELL_EMPTY {
 				all_total += 1
 			}
 
 		}
+	}
 
+	for j := 0; j < len(state.Players); j++ {
+		player := &state.Players[j]
 		if player.Score == 0 {
-			state.gameOver = true
+			display_board(state)
+			log.Printf("player %d (%s) has no pieces!  **** gameOver***", j, player.Color)
+			state.endGame("No pieces on board")
 		}
 	}
 
 	if all_total == BOARD_SIZE*BOARD_SIZE {
-		state.gameOver = true
+		display_board(state)
+		log.Printf("all_total:%d **** gameOver***", all_total)
+		state.endGame("Board filled")
 	}
 }
 
@@ -374,27 +379,31 @@ func (state *GameState) newGame() {
 
 	state.Board_str = board_to_string(state)
 
-	if state.ActivePlayer != -1 {
-		player := &state.Players[state.ActivePlayer]
-		if player.color == CELL_BLACK {
-			player.color = CELL_WHITE
-		} else {
-			player.color = CELL_BLACK
-		}
-
+	if firstGame {
+		playerColor := CELL_BLACK
 		for i := 0; i < len(state.Players); i++ {
-			if i != state.ActivePlayer {
-				if player.color == CELL_BLACK {
-					state.Players[state.ActivePlayer].color = CELL_WHITE
-				} else {
-					state.Players[state.ActivePlayer].color = CELL_BLACK
-				}
+			player := &state.Players[i]
+			player.color = playerColor
+			if playerColor == CELL_BLACK {
+				playerColor = CELL_WHITE
+			} else {
+				playerColor = CELL_BLACK
 			}
 		}
+		firstGame = false
+
 	} else {
-		state.Players[0].color = CELL_BLACK
-		state.Players[1].color = CELL_WHITE
-	}
+
+		for i := 0; i < len(state.Players); i++ {
+			player := &state.Players[i]
+			if player.color == CELL_BLACK {
+				player.color = CELL_WHITE
+			} else {
+				player.color = CELL_BLACK
+			}
+
+		}
+}
 
 	for i := 0; i < len(state.Players); i++ {
 		player := &state.Players[i]
@@ -412,46 +421,6 @@ func (state *GameState) newGame() {
 	state.resetPlayerTimer(true)
 }
 
-/*
-func (state *GameState) newTurn() {
-
-	// Drop any players that left last turn
-	state.dropInactivePlayers(true, false)
-
-	// Check if multiple players are still playing
-	if state.Turn > WAITING_TURN {
-		playersLeft := 0
-		for _, player := range state.Players {
-			if player.Status == STATUS_PLAYING {
-				playersLeft++
-			}
-		}
-
-		if playersLeft < 2 {
-			state.endGame(false)
-			return
-		}
-	} else {
-		if len(state.Players) < 2 {
-			return
-		}
-	}
-
-	// First turn of a new game?
-	if state.Turn == FIRST_TURN {
-
-		if state.LastResult == WAITING_MESSAGE {
-			state.LastResult = ""
-		}
-	}
-
-	if lastTurn != state.Turn {
-		state.resetPlayerTimer(true)
-	}
-	lastTurn = state.Turn
-
-}
-*/
 
 func (state *GameState) addPlayer(playerName string, isBot bool) {
 
@@ -507,7 +476,7 @@ func (state *GameState) setClientPlayerByName(playerName string) {
 	}
 }
 
-func (state *GameState) endGame(abortGame bool) {
+func (state *GameState) endGame(message string) {
 	// The next request for /state will start a new game
 
 	// Hand rank details
@@ -517,7 +486,7 @@ func (state *GameState) endGame(abortGame bool) {
 	state.gameOver = true
 	state.ActivePlayer = -1
 
-	state.LastResult = ""
+	state.LastResult = message
 
 	state.moveExpires = time.Now().Add(ENDGAME_TIME_LIMIT)
 
@@ -603,6 +572,9 @@ func (state *GameState) runGameLogic() {
 			state.dropInactivePlayers(false, false)
 			state.Turn = WAITING_TURN
 			state.gameOver = false
+			log.Printf("+++++++++++++++++++++++++++++++++++++++")
+			log.Printf("*+++++++++++ NEW GAME +++++++++++++++++")
+			log.Printf("+++++++++++++++++++++++++++++++++++++++")
 			state.newGame()
 		}
 		return
@@ -619,7 +591,7 @@ func (state *GameState) runGameLogic() {
 	// If only one player is left, just end the game now
 	if playersLeft == 1 {
 		log.Printf("********* playersLeft == 1\n")
-		state.endGame(false)
+		state.endGame("Player Left")
 		return
 	}
 
@@ -713,7 +685,7 @@ func (state *GameState) clientLeave() {
 
 	// If the last player dropped, stop the game and update the lobby
 	if playersLeft == 0 {
-		state.endGame(true)
+		state.endGame("No players")
 		log.Printf("*************** inactive players\n")
 		state.dropInactivePlayers(false, false)
 		return
@@ -969,6 +941,55 @@ func (state *GameState) getValidMoves() []validMove {
 	return moves
 }
 
+/*
+2024/08/12 11:20:01 ********************************************************
+2024/08/12 11:20:01 ***********************apiMove**************************
+2024/08/12 11:20:01 ********************************************************
+2024/08/12 11:20:01 getState table:'bot1a' player:'TechCowboy'
+2024/08/12 11:20:01 player[0]: Hal BOT BLACK
+2024/08/12 11:20:01 player[1]: TechCowboy WHITE
+2024/08/12 11:20:01 clientPlayer:1  ActivePlayer: 1
+2024/08/12 11:20:01 MOVE: ':"59"'
+2024/08/12 11:20:01 59 !=  8
+2024/08/12 11:20:01 59 !=  9
+2024/08/12 11:20:01 59 !=  11
+2024/08/12 11:20:01 59 !=  12
+2024/08/12 11:20:01 59 !=  13
+2024/08/12 11:20:01 59 !=  14
+2024/08/12 11:20:01 59 !=  29
+2024/08/12 11:20:01 59 !=  32
+2024/08/12 11:20:01 59 !=  39
+2024/08/12 11:20:01 59 !=  46
+2024/08/12 11:20:01 59 !=  53
+2024/08/12 11:20:01 59 !=  54
+2024/08/12 11:20:01 59 ==  59
+2024/08/12 11:20:01 performMove - Player: TechCowboy is W
+2024/08/12 11:20:01 Requested move board_pos:59
+2024/08/12 11:20:01 Apply move 7, 3
+2024/08/12 11:20:01 >>> next player
+2024/08/12 11:20:01 >>>>resetPlayerTimer
+2024/08/12 11:20:01 *********** gameover: %!d(bool=true)  #Players: 2
+2024/08/12 11:20:01 valid moves
+2024/08/12 11:20:01 state.MoveTime: 4
+[GIN] 2024/08/12 - 11:20:01 | 200 |     326.637µs |       127.0.0.1 | GET      "/move/:\"59\"?player=TechCowboy&table=bot1a"
+2024/08/12 11:20:02 getState table:'bot1a' player:'TechCowboy'
+2024/08/12 11:20:02 apiState
+2024/08/12 11:20:02 ****runGameLogic  Turn:29  ActivePlayer:-1   -1  TIMER:3****
+2024/08/12 11:20:02 *********** gameover: %!d(bool=true)  #Players: 2
+2024/08/12 11:20:02 valid moves
+2024/08/12 11:20:02 state.MoveTime: 3
+[GIN] 2024/08/12 - 11:20:02 | 200 |     175.313µs |       127.0.0.1 | GET      "/state?player=TechCowboy&table=bot1a"
+2024/08/12 11:20:03 getState table:'bot1a' player:'TechCowboy'
+2024/08/12 11:20:03 apiState
+2024/08/12 11:20:03 ****runGameLogic  Turn:29  ActivePlayer:-1   -1  TIMER:2****
+2024/08/12 11:20:03 *********** gameover: %!d(bool=true)  #Players: 2
+2024/08/12 11:20:03 valid moves
+2024/08/12 11:20:03 state.MoveTime: 2
+[GIN] 2024/08/12 - 11:20:03 | 200 |     182.947µs |       127.0.0.1 | GET      "/state?player=TechCowboy&table=bot1a"
+2024/08/12 11:20:04 getState table:'bot1a' player:'TechCowboy'
+2024/08/12 11:20:04 apiState
+2024/08/12 11:20:04 ****runGameLogic  Turn:29  ActivePlayer:-1   -1  TIMER:1*****/
+
 // Creates a copy of the state and modifies it to be from the
 // perspective of this client (e.g. player array, visible cards)
 func (state *GameState) createClientState() *GameState {
@@ -978,7 +999,7 @@ func (state *GameState) createClientState() *GameState {
 
 	if state.gameOver ||
 		len(state.Players) < 2 {
-		log.Printf("*********** gameover: %d  #Players: %d\n", state.gameOver, len(state.Players))
+		log.Printf("*********** gameover: %t  #Players: %d\n", state.gameOver, len(state.Players))
 		state.ActivePlayer = -1
 	}
 
