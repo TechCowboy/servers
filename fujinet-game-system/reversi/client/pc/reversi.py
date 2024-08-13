@@ -5,8 +5,8 @@ import os
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import pygame
 
-#ip = "192.168.2.254"
-ip = "localhost"
+ip = "192.168.2.254"
+#ip = "localhost"
 
 
 # Local imports
@@ -23,7 +23,7 @@ BACKGROUND_COLOR = '#696969'
 GAME_COLOR       = '#006000'
 
 
-global done
+
 
 class Reversi:
     
@@ -226,6 +226,8 @@ class Reversi:
         print("\a")
 
     def start(self):
+        done = False
+        
         self.beep()
         self.myname = "TechCowboy"
         self.server.set_name(self.myname)
@@ -247,47 +249,41 @@ class Reversi:
         # **********************************************
 
         first_time = True
-        play_again = True
-        done = False
-        while play_again and not done:
+ 
+        while not done:
+            done, mouse_pos = event_handler()
+            data_change = self.server.refresh_data()
             
-            update_screen = 1
-          
-            while not done:
-                mouse_pos = event_handler()
-                data_change = self.server.refresh_data()
-                
-                if not self.server.connected:
-                    print(f"{self.url} is down.")
-                    break
-                
-                if (not data_change) and (not first_time):
-                    time.sleep(1)
-                    continue
-                
-                self.board = self.server.get_board()
-                if self.board != last_board:
-                    self.beep()
-                    last_board = self.board
-                
-                timer = self.server.get_move_time()
-                self.ap = self.server.get_active_player()
-                
-                self.redraw_board()
-                
-                if mouse_pos != (-1,-1):
-                    row = (int) ((mouse_pos[0] - self.game_offset_x) / self.col_multiplier)
-                    col = (int) ((mouse_pos[1] - self.game_offset_y) / self.row_multiplier)
-                    self.draw_click(row,col)
-                    if self.server.is_valid_move(row,col):
-                        self.server.put_move(row,col)
-                
+            if not self.server.connected:
+                print(f"{self.url} is down.")
+                break
+            
+            if (not data_change) and (not first_time):
                 time.sleep(1)
-                
-                first_time = False
+                continue
+            
+            self.board = self.server.get_board()
+            if self.board != last_board:
+                self.beep()
+                last_board = self.board
+            
+            timer = self.server.get_move_time()
+            self.ap = self.server.get_active_player()
+            
+            self.redraw_board()
+            
+            if mouse_pos != (-1,-1):
+                row = (int) ((mouse_pos[0] - self.game_offset_x) / self.col_multiplier)
+                col = (int) ((mouse_pos[1] - self.game_offset_y) / self.row_multiplier)
+                self.draw_click(row,col)
+                if self.server.is_valid_move(row,col):
+                    self.server.put_move(row,col)
+            
+            time.sleep(1)
+            
+            first_time = False
             
                 
-        #end while play again
         print("Done.")
         pygame.quit()
 
