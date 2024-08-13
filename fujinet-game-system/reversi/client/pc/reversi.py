@@ -17,13 +17,10 @@ if sys.path[0] != my_modules_path:
 from json_handler import *
 from event_handler import *
 
-SCREEN_HEIGHT = 800
-SCREEN_WIDTH = 800
+SCREEN_HEIGHT    = 800
+SCREEN_WIDTH     = 800
 BACKGROUND_COLOR = '#696969'
-GAME_COLOR = '#006000'
-FONT = ('Helvetica', 30)
-DIALOG_FONT = ('Helvetica', 20)
-#PLAYERS = {othello.BLACK: 'Black', othello.WHITE: 'White'}
+GAME_COLOR       = '#006000'
 
 
 global done
@@ -37,14 +34,14 @@ class Reversi:
         pygame.font.init()
         
         self.clock = pygame.time.Clock()
-
-        
+      
+        # built the url for the server website based on the ip supplied
         self.url = f'http://{ip}:8080'
 
         self.server = json_handler(self.url)
         
         # Set up the drawing window
-        self.screen_width = SCREEN_WIDTH
+        self.screen_width  = SCREEN_WIDTH
         self.screen_height = SCREEN_HEIGHT
         self.screen = pygame.display.set_mode([SCREEN_WIDTH, SCREEN_HEIGHT])
         
@@ -53,17 +50,16 @@ class Reversi:
         self._rows = 8
         self._cols = 8
         
-        
-        self.game_offset_x = (self.screen_width / (self._cols+2)) 
+        self.game_offset_x = (self.screen_width  / (self._cols+2)) 
         self.game_offset_y = (self.screen_height / (self._rows+2))
-        self.game_width = (self.screen_width / (self._cols+2))*self._cols
-        self.game_height = (self.screen_height / (self._rows+2))*self._rows
+        self.game_width    = (self.screen_width  / (self._cols+2))*self._cols
+        self.game_height   = (self.screen_height / (self._rows+2))*self._rows
         
         self.row_multiplier = float(self.game_height) / self._rows
-        self.col_multiplier = float(self.game_width) / self._cols
+        self.col_multiplier = float(self.game_width)  / self._cols
         
-        self.game_background = (0,255,0)
-        self.text_color_black = (0,0,0)
+        self.game_background  = (0,  255,  0)
+        self.text_color_black = (0,    0,  0)
         self.text_color_white = (255,255,255)
         
         self.font = pygame.font.Font('freesansbold.ttf', 32)
@@ -74,9 +70,18 @@ class Reversi:
         
         #********** player 1 name ************
         
-        # create a text surface object,
-        # on which text is drawn on it.
-        text = self.font.render(self.server.get_name(0), True, self.text_color_black, self.game_background)
+        if self.server.get_color(0) == 'B':
+            textColor = self.text_color_black
+            backColor = self.game_background
+
+        if self.server.get_color(0) == 'W':
+            textColor = self.text_color_white
+            backColor = self.game_background
+ 
+        if self.ap == 0:
+            text = self.font.render(self.server.get_name(0), True, backColor, textColor)
+        else:
+            text = self.font.render(self.server.get_name(0), True, textColor, backColor)
          
         # create a rectangular object for the
         # text surface object
@@ -87,8 +92,22 @@ class Reversi:
         self.screen.blit(text, textRect)
 
         #********** player 2 name ************
+        
+        if self.server.get_color(1) == 'B':
+            textColor = self.text_color_black
+            backColor = self.game_background
 
-        text = self.font.render(self.server.get_name(1), True, self.text_color_white, self.game_background)
+        if self.server.get_color(1) == 'W':
+            textColor = self.text_color_white
+            backColor = self.game_background
+
+        
+        if self.ap == 1:
+            text = self.font.render(self.server.get_name(1), True, backColor, textColor)
+        else:
+            text = self.font.render(self.server.get_name(1), True, textColor, backColor)
+            
+
          
         # create a rectangular object for the
         # text surface object
@@ -107,8 +126,9 @@ class Reversi:
         textRect = text.get_rect()
          
         # set the center of the rectangular object.
-        textRect.center = (self.screen_width/2 - textRect.width/2, textRect.height*2)
-        self.screen.blit(text, textRect)
+
+        text_rect = text.get_rect(center=(self.screen_width/2, textRect.height*2))
+        self.screen.blit(text, text_rect)
 
 
         #************** Print Timer
@@ -134,6 +154,11 @@ class Reversi:
         ''' Redraws the board '''
         self.redraw_lines()
         self.redraw_cells()
+        
+        if self.server.get_name(self.ap) == self.myname:
+            moves = self.server.get_valid_moves()
+            self.draw_valid_moves(moves)
+                    
         pygame.display.update()
 
     def redraw_lines(self):
@@ -202,9 +227,9 @@ class Reversi:
 
     def start(self):
         self.beep()
-        self.server.set_name("TechCowboy")
+        self.myname = "TechCowboy"
+        self.server.set_name(self.myname)
         self.server.set_table("bot1a")
-        #server.set_players(2)
         
         # Initial Game Settings
         self._rows = 8
@@ -247,37 +272,15 @@ class Reversi:
                 
                 timer = self.server.get_move_time()
                 self.ap = self.server.get_active_player()
-                if self.ap >= 0:
-                    print(self.server.get_name(self.ap), end ='')
-                else:
-                    print("Unknown", end='')
-                print("'s turn")
-                print("Time: ", timer)
                 
                 self.redraw_board()
-                      
-                moves = self.server.get_valid_moves()
-                
-                self.draw_valid_moves(moves)
-                
-                #for key in moves.keys():
-                #    print(f"{key}  {moves[key]} | ", end='')
-                    
-                #print()
                 
                 if mouse_pos != (-1,-1):
                     row = (int) ((mouse_pos[0] - self.game_offset_x) / self.col_multiplier)
                     col = (int) ((mouse_pos[1] - self.game_offset_y) / self.row_multiplier)
-                    print(f"mouse_pos: {mouse_pos} click: {row}, {col}  Move: {row*8+col}")
                     self.draw_click(row,col)
                     if self.server.is_valid_move(row,col):
-                        self.beep()
                         self.server.put_move(row,col)
-                    else:
-                        self.beep()
-                        self.beep()
-                        self.beep()
-
                 
                 time.sleep(1)
                 

@@ -23,6 +23,7 @@ class json_handler:
         self.key_board = 'bd'
         self.key_timer = 'm'
         self.key_score = 'sc'
+        self.key_color = 'c'
          
     def set_table(self, table):
         self.table = table
@@ -39,7 +40,6 @@ class json_handler:
             request = self.url+"/state?player="+self.my_name+"&table="+self.table
             response = requests.get(request)
             self.json_data = json.loads(response.text)
-            print(self.json_data)
             self.data_change = not (self.last_data == response.text)
             self.last_data = response.text;
             #if self.data_change:
@@ -61,7 +61,6 @@ class json_handler:
         action = f":\"{row*8+col}\""
         try:
             request = self.url+"/move/"+action+"?player="+self.my_name+"&table="+self.table
-            print(request)
             response = requests.get(request)
             self.json_action_data = json.loads(response.text)
             self.connected = True
@@ -76,6 +75,9 @@ class json_handler:
     
     def get_name(self,player_num):
         return self.json_data[self.key_players][player_num][self.key_name]
+    
+    def get_color(self, player_num):
+        return self.json_data[self.key_players][player_num][self.key_color]
             
     def get_playing(self, player_num):
         player = self.json_data[self.key_active_player]
@@ -110,11 +112,12 @@ class json_handler:
     def is_valid_move(self, row, col):
         valid_move = False
         
-        pos = str(row*8+col)
-        for i in range(len(self.json_data[self.key_valid_moves])):
-            if pos in self.json_data[self.key_valid_moves][i][self.key_move]:
-                valid_move = True
-                break
+        if self.json_data[self.key_valid_moves] != None:
+            pos = str(row*8+col)
+            for i in range(len(self.json_data[self.key_valid_moves])):
+                if pos in self.json_data[self.key_valid_moves][i][self.key_move]:
+                    valid_move = True
+                    break
         
         return valid_move
             
