@@ -69,19 +69,19 @@ class Reversi:
         self.screen.fill(self.game_background)
         
         #********** player 1 name ************
-        
+
         if self.server.get_color(0) == 'B':
-            textColor = self.text_color_black
-            backColor = self.game_background
+            player1Color = self.text_color_black
+            player1backColor = self.game_background
 
         if self.server.get_color(0) == 'W':
-            textColor = self.text_color_white
-            backColor = self.game_background
+            player1Color = self.text_color_white
+            player1backColor = self.game_background
  
         if self.ap == 0:
-            text = self.font.render(self.server.get_name(0), True, backColor, textColor)
+            text = self.font.render(self.server.get_name(0), True, player1backColor, player1Color)
         else:
-            text = self.font.render(self.server.get_name(0), True, textColor, backColor)
+            text = self.font.render(self.server.get_name(0), True, player1Color, player1backColor)
          
         # create a rectangular object for the
         # text surface object
@@ -94,18 +94,18 @@ class Reversi:
         #********** player 2 name ************
         
         if self.server.get_color(1) == 'B':
-            textColor = self.text_color_black
-            backColor = self.game_background
+            player2Color = self.text_color_black
+            player2backColor = self.game_background
 
         if self.server.get_color(1) == 'W':
-            textColor = self.text_color_white
-            backColor = self.game_background
+            player2Color = self.text_color_white
+            player2backColor = self.game_background
 
         
         if self.ap == 1:
-            text = self.font.render(self.server.get_name(1), True, backColor, textColor)
+            text = self.font.render(self.server.get_name(1), True, player2backColor, player2Color)
         else:
-            text = self.font.render(self.server.get_name(1), True, textColor, backColor)
+            text = self.font.render(self.server.get_name(1), True, player2Color, player2backColor)
             
 
          
@@ -135,8 +135,8 @@ class Reversi:
 
         if self.ap >= 0:
             text = self.font.render(f"{self.server.get_move_time()}", True, self.text_color_black, self.game_background)
-            score1 = self.font.render(f"{self.server.get_score(0)}", True, self.text_color_black, self.game_background)
-            score2 = self.font.render(f"{self.server.get_score(1)}", True, self.text_color_white, self.game_background)
+            score1 = self.font.render(f"{self.server.get_score(0)}", True, player1Color, self.game_background)
+            score2 = self.font.render(f"{self.server.get_score(1)}", True, player2Color, self.game_background)
             textRect = text.get_rect()
             scoreRect1 = score1.get_rect()
             scoreRect2 = score2.get_rect()

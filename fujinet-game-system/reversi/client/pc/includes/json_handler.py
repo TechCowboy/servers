@@ -46,7 +46,7 @@ class json_handler:
             #    print(response.text)
             self.connected = True
         except Exception as e:
-            print(f"error: {e}")
+            print(f"error: request {request} -- {e}")
             self.connected = False
         return self.data_change 
     

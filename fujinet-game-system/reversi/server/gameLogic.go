@@ -418,6 +418,7 @@ func (state *GameState) newGame() {
 			player.Color = "W"
 		}
 	}
+	state.calc_score()
 
 	state.LastResult = ""
 	state.Turn = FIRST_TURN
@@ -1023,8 +1024,12 @@ func (state *GameState) createClientState() *GameState {
 				selected_move = 0
 			}
 
-			log.Printf("%d Force %s to moved: %s", selected_move, state.Players[state.ActivePlayer].Name, weighted_moves[selected_move].Name)
-			state.performMove(weighted_moves[selected_move].Move)
+			if selected_move < len(weighted_moves) {
+				log.Printf("%d Force %s to moved: %s", selected_move, state.Players[state.ActivePlayer].Name, weighted_moves[selected_move].Name)
+				state.performMove(weighted_moves[selected_move].Move)
+			} else {
+				log.Printf("No weighted move - force pass.")
+			}
 		} else {
 			log.Printf(("Force pass"))
 		}
