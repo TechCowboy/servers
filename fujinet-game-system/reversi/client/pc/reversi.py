@@ -5,7 +5,8 @@ import os
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import pygame
 
-ip = "192.168.2.254"
+ip = "fujinet-vm"
+#ip = "192.168.1.102"
 #ip = "localhost"
 
 

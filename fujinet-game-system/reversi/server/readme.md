@@ -17,13 +17,24 @@ Clone and run the server locally:
 
 ## Basic Flow
 
+Game Server:
+Tells Lobby Server what game it is, it's app_id, and the tables available. 
+The Lobby Client grabs that info from the Lobby Server and the platforms it supports.
+When the user selects a game and table, the Lobby Client writes to the app key (in a predefined structure) and launches the game client
+The game client grabs it's app key and uses that server/table and begins "gaming"
+
+You can read http://lobby.fujinet.online/docs - scroll down to "So you're a programmer and want to use Lobby Server?" - the first bit is hosting the lobby server, which IMO should be at the bottom, as most people want to know how to get their server/game in the lobby.
+
+So what happens when tell CONFIG to go to the lobby?
+It puts the lobby client found on fujinet.online in slot one and boots 
+
 A game client is expected to:
 
 1. Call `/tables` to present a list of tables to join.
 2. There is no specific call to join a table. Simply retrieving the state will cause the player to join that table.
 2. In a loop:
     A. Call `/state?player=X&table=Y` to retrieve that latest state
-    B. Call `/move/[CODE]?player=X&table=Y` to place a move if it is the current player's turn
+    B. Call `/move/"POSITION"?player=X&table=Y` to place a move if it is the current player's turn.  Position is calculated by row*8 + col
 3. If the player wishes to exit the game, the client should call `/leave?player=X&table=Y`
 
 
@@ -59,7 +70,7 @@ json
 
 These tables are psuedo real time. Call `/state` will run any housekeeping tasks (bot or player auto-move, deal card, proceed with dealing). Since a call to `/state` is required to advance the game, a table with bots in it will not actually play until one or more clients are connected and calling `/state`. Each player has a limited amount of time to make a move before the server makes a move on their behalf. BOTs take a second to move.
 
-* The game is over when **round 99** is sent. The next game will begin automatically after a few seconds.
+* The game is over when the active player is -1 is sent. The next game will begin automatically after a few seconds.
 * The game is waiting on more players when **round 0** is sent.
 * Clients should call `/leave` when a player exits the game or table, rather than rely on the server to eventually drop the player due to inactivity.
 
@@ -68,7 +79,7 @@ You can view the state as-is by calling `/view`.
 ## Api paths
 
 * `/state` - Advance forward (AI/Game Logic) and return updated state as compact json
-* `/move/[code]` - Apply your player's move and return updated state as compact json. e.g. ``/move/CH`` to "Check", ``/move/BL`` to "Bet 5 (low)".
+* `/move/[position]` - Apply your player's move and return updated state as compact json. 
 * `/leave` - Leave the table. Each client should call this when a player exits the game
 * `/view?table=N` - View the current state as-is without advancing, as formatted json. Useful for debugging in a browser alongside the client. **NOTE:** If you call this for an uninitated game, a different randomly initiated game will be returned every time. Only `table` query parameter is required.
 * `/tables` - Returns a list of available REAL tables along with player information. No query parameters are required
@@ -117,47 +128,48 @@ Keys are single character, lower case, to make parsing easier on 8-bit clients. 
 
 #### Example state
 
+ignore comments with #
 ```json
 {
-    "l": "Thom won",
-    "r": 1,
-    "p": 0,
-    "a": 0,
-    "m": 25,
-    "v": 0,
-    "vm": [
-        {
-            "m": "FO",
-            "n": "Fold"
-        },
-        {
-            "m": "CA",
-            "n": "Call"
-        },
-        {
-            "m": "RL",
-            "n": "Raise 5"
-        }
-    ],
-    "pl": [
-        {
-            "n": "You",
-            "s": 1,
-            "b": 0,
-            "m": "",
-        },
-        {
-            "n": "Thom",
-            "s": 1,
-            "b": 5,
-            "m": "BET",
-        },
-        {
-            "n": "Mozzwald",
-            "s": 0,
-            "b": 0,
-            "m": "",
-        },
-    ]
+  "l": "", # last response
+  "t": 1,  # turn number
+  "a": 0,  # active player  -1 = game over
+  "m": 5,  # time left to move
+  "v": 0,  # =1 viewing only
+  "vm": [  # valid moves
+    {
+      "m": "20", # move
+      "n": "3,5" # name
+    },
+    {
+      "m": "29",
+      "n": "4,6"
+    },
+    {
+      "m": "34",
+      "n": "5,3"
+    },
+    {
+      "m": "43",
+      "n": "6,4"
+    }
+  ],
+  "pl": [ # players
+    {
+      "n": "Hal BOT", # name
+      "s": 1,         # status
+      "m": "",        # Move
+      "c": "B",       # Color
+      "sc": 2         # Score
+    },
+    {
+      "n": "TechCowboy",
+      "s": 1,
+      "m": "",
+      "c": "W",
+      "sc": 2
+    }
+  ],
+  "bd": "...........................BW......WB..........................." # board 64 squares
 }
 ```
