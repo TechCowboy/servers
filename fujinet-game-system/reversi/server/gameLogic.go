@@ -363,6 +363,7 @@ func (state *GameState) ApplyMove(row int, col int, player_color Cell) {
 
 func (state *GameState) newGame() {
 
+	log.Printf("***************** New Game *******************")
 	state.gameOver = false
 	lastTurn = -1
 
@@ -427,10 +428,26 @@ func (state *GameState) newGame() {
 
 func (state *GameState) addPlayer(playerName string, isBot bool) {
 
+	var new_color string
+	var cell Cell
+
+	new_color = "B"
+	cell = CELL_BLACK
+
+	if len(state.Players) > 0 {
+		log.Printf("len:%d state.Players[0].color:%s\n", len(state.Players), state.Players[0].Color)
+		if state.Players[0].color == CELL_BLACK {
+			new_color = "W"
+			cell = CELL_WHITE
+		}
+	}
+
 	newPlayer := Player{
 		Name:   playerName,
-		Status: 0,
+		Status: STATUS_WAITING,
 		isBot:  isBot,
+		Color:  new_color,
+		color:  cell,
 	}
 
 	state.Players = append(state.Players, newPlayer)
@@ -858,6 +875,8 @@ func (state *GameState) getValidMoves() []validMove {
 	var opponent_color Cell = CELL_WHITE
 	var move validMove
 	var moves []validMove
+
+	moves = noMoveArray
 
 	if state.ActivePlayer == -1 {
 		return moves

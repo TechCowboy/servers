@@ -35,6 +35,17 @@ class json_handler:
         request = self.url+"/state?count="+str(players)+"&table="+self.table
         requests.get(request)
         
+    def get_tables(self):
+        try:
+            request = self.url+"/tables"
+            response = requests.get(request)
+            self.table_data = json.loads(response.text)
+            self.connected = True
+        except Exception as e:
+            print(f"error: request {request} -- {e}")
+            self.connected = False
+        return self.table_data 
+        
     def refresh_data(self):
         try:
             request = self.url+"/state?player="+self.my_name+"&table="+self.table
@@ -51,10 +62,16 @@ class json_handler:
         return self.data_change 
     
     def get_board(self):
-        return self.json_data[self.key_board]
+        if self.json_data == None or self.json_data[self.key_board] == None:
+            return "."*64
+        else:
+            return self.json_data[self.key_board]
     
     def get_move_time(self):
-        return self.json_data[self.key_timer]
+        if self.json_data == None:
+            return 0
+        else:
+            return self.json_data[self.key_timer]
 
     def put_move(self, row, col):
         success = True
@@ -70,24 +87,48 @@ class json_handler:
         return success
     
     def get_number_of_players(self):
+        if self.json_data == None:
+            return 0
+        
         num = len(self.json_data[self.key_players])
         return num
     
     def get_name(self,player_num):
-        return self.json_data[self.key_players][player_num][self.key_name]
+        try:
+            name = self.json_data[self.key_players][player_num][self.key_name]
+        except:
+            name = "WAITING"
+           
+        return name
+    
     
     def get_color(self, player_num):
-        return self.json_data[self.key_players][player_num][self.key_color]
+        if self.json_data == None:
+            return '.'
+
+        if len(self.json_data[self.key_players]) > player_num-1:
+            return '.'
+        else:
+            return self.json_data[self.key_players][player_num][self.key_color]
             
     def get_playing(self, player_num):
+        if self.json_data == None:
+            return -1
+        
         player = self.json_data[self.key_active_player]
         return player
     
     def get_last_result(self):
+        if self.json_data == None:
+            return ""
+        
         return self.json_data[self.key_last_result]
     
     def get_active_player(self):
-        return self.json_data[self.key_active_player]
+        if self.json_data == None:
+            return -1
+        else:
+            return self.json_data[self.key_active_player]
     
     def get_score(self, player_num):
         return  self.json_data[self.key_players][player_num][self.key_score]
@@ -111,6 +152,9 @@ class json_handler:
     
     def is_valid_move(self, row, col):
         valid_move = False
+        
+        if self.json_data == None:
+            return valid_move
         
         if self.json_data[self.key_valid_moves] != None:
             pos = str(row*8+col)

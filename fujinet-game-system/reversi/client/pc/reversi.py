@@ -5,9 +5,12 @@ import os
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import pygame
 
-ip = "fujinet-vm"
-#ip = "192.168.1.102"
-#ip = "localhost"
+ip     = "fujinet-vm"
+ip     = "FUJINET-VM.local"
+myname = "VM-TC"
+mytable= "green"
+
+ip = "localhost"
 
 
 # Local imports
@@ -46,7 +49,7 @@ class Reversi:
         self.screen_height = SCREEN_HEIGHT
         self.screen = pygame.display.set_mode([SCREEN_WIDTH, SCREEN_HEIGHT])
         
-        pygame.display.set_caption('Fujinet Game Server Reversi')
+        pygame.display.set_caption(f'Fujinet Game Server Reversi: {self.url}')
         
         self._rows = 8
         self._cols = 8
@@ -64,10 +67,32 @@ class Reversi:
         self.text_color_white = (255,255,255)
         
         self.font = pygame.font.Font('freesansbold.ttf', 32)
+        self.table = "no table"
+        
+        self.screen.fill(self.game_background)
+        pygame.display.update()
         
     
     def redraw_board(self):
+        player1Color = self.text_color_black
+        player1backColor = self.game_background
+        player2Color = self.text_color_white
+        player2backColor = self.game_background
+        
         self.screen.fill(self.game_background)
+        
+        # table
+        text = self.font.render(f"{self.table}", True, self.text_color_white, self.game_background)
+         
+        # create a rectangular object for the
+        # text surface object
+        textRect = text.get_rect()
+         
+        # set the center of the rectangular object.
+
+        text_rect = text.get_rect(center=(self.screen_width/2, textRect.height))
+        self.screen.blit(text, text_rect)
+
         
         #********** player 1 name ************
 
@@ -214,7 +239,10 @@ class Reversi:
 
     def draw_valid_moves(self, moves):
         for key in moves.keys():
-            pos = int(key)
+            try:
+                pos = int(key)
+            except:
+                continue
             row = pos // 8
             col = pos - row * 8
             pygame.draw.circle(self.screen, (128, 128, 128),
@@ -226,13 +254,14 @@ class Reversi:
     def beep(self):
         print("\a")
 
-    def start(self):
+    def start(self, myname, table):
         done = False
         
         self.beep()
-        self.myname = "TechCowboy"
+        self.myname = myname
+        self.table = table
         self.server.set_name(self.myname)
-        self.server.set_table("bot1a")
+        self.server.set_table(self.table)
         
         # Initial Game Settings
         self._rows = 8
@@ -287,8 +316,56 @@ class Reversi:
                 
         print("Done.")
         pygame.quit()
+        
+    def get_string(self):
+        result = ""
+        getting_input = True
+        while getting_input:
+       
+            # creating a loop to check events that 
+            # are occurring
+            for event in pygame.event.get():
+                    
+                # checking if keydown event happened or not
+                if event.type == pygame.KEYDOWN:                    
+
+                    if event.key == pygame.K_RETURN:
+                        getting_input = False
+                        break
+                    
+                    if event.key == pygame.K_BACKSPACE:
+                        result = result[:-1]
+                    else:
+                        result = result + event.unicode
+                        
+        print(f"result = '{result}'")
+        return result
+    
+        
+    def get_name(self):
+        self.screen.fill(self.game_background)
+        print("\nEnter your name: ", end='')
+        return self.get_string()
+
+    
+    def get_table(self):
+        self.screen.fill(self.game_background)
+        tables = self.server.get_tables()
+        for table in tables:
+            print(f"{table['t']}\t\t{table['n']}")
+        
+        
+        print("\nEnter your table: ", end='')
+        return self.get_string()
 
 if __name__ == '__main__':
+    
+    
+    print(ip)
     MY_GAME = Reversi(ip)
-    MY_GAME.start()
+    myname  = MY_GAME.get_name()
+    print(f"Your name is: {myname}") 
+    mytable = MY_GAME.get_table()
+    print(f"Your table is: {mytable}")
+    MY_GAME.start(myname, mytable)
     
