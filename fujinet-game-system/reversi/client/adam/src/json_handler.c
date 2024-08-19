@@ -7,6 +7,7 @@
 #include "json_handler.h"
 #include"sound.h"
 
+//#define NET_DIAGS
 
 unsigned char response[1024];
 
@@ -95,10 +96,12 @@ bool update_data(void)
         // board
         if ((r = io_json_query("/bd", _pieces, sizeof(_pieces))) != 0)
         {
+#ifdef NET_DIAGS
             sound_negative_beep();
             debug_start();
             cprintf("%s\n", query);
             debug_end();
+#endif
             break;
         }
 
@@ -109,10 +112,12 @@ bool update_data(void)
         // turn
         if ((r = io_json_query("/t", response, sizeof(response))) != 0)
         {
+#ifdef NET_DIAGS
             sound_negative_beep();
             debug_start();
             cprintf("%s\n", query);
             debug_end();
+#endif
             break;
         }
 #ifdef NO_FUJI
@@ -124,10 +129,12 @@ bool update_data(void)
         // active player
         if ((r = io_json_query("/a", response, sizeof(response))) != 0)
         {
+#ifdef NET_DIAGS
             sound_negative_beep();
             debug_start();
             cprintf("%s\n", query);
             debug_end();
+#endif
             break;
         }
 #ifdef NO_FUJI
@@ -149,10 +156,12 @@ bool update_data(void)
         // move time left
         if ((r = io_json_query("/m", response, sizeof(response))) != 0)
         {
+#ifdef NET_DIAGS
             sound_failure();
             debug_start();
             cprintf("%s\n", query);
             debug_end();
+#endif
             break;
         }
 
@@ -185,10 +194,12 @@ bool update_data(void)
             // players
             if ((r = io_json_query(query, response, sizeof(response))) != 0)
             {
+#ifdef NET_DIAGS
                 sound_negative_beep();
                 debug_start();
                 cprintf("%s\n", query);
                 debug_end();
+#endif
             }
             else
             {
@@ -203,10 +214,12 @@ bool update_data(void)
             // players
             if ((r = io_json_query(query, response, sizeof(response))) != 0)
             {
+#ifdef NET_DIAGS
                 sound_negative_beep();
                 debug_start();
                 cprintf("%s\n", query);
                 debug_end();
+#endif
             }
             else
             {

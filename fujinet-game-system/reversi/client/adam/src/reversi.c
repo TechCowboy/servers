@@ -808,7 +808,7 @@ int main()
 	vdp_color(BACKGROUND_COLOUR_GRAPHICS);
 	vdp_set_mode(mode_2);
 
-	strncpy2(url, "http://192.168.2.184:8080", sizeof(url));
+	strncpy2(url, "http://FUJINET-VM.local:8080", sizeof(url));
 
 	reversi_init(url);
 	set_name(my_name);
