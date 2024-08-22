@@ -7,10 +7,7 @@ import pygame
 
 ip     = "fujinet-vm"
 ip     = "FUJINET-VM.local"
-myname = "VM-TC"
-mytable= "green"
-
-ip = "localhost"
+ip 	   = "localhost"
 
 
 # Local imports
@@ -66,7 +63,8 @@ class Reversi:
         self.text_color_black = (0,    0,  0)
         self.text_color_white = (255,255,255)
         
-        self.font = pygame.font.Font('freesansbold.ttf', 32)
+        self.font 		= pygame.font.SysFont('sans', 32, bold=True)
+        self.font_mono  = pygame.font.SysFont('courier', 32)
         self.table = "no table"
         
         self.screen.fill(self.game_background)
@@ -317,8 +315,9 @@ class Reversi:
         print("Done.")
         pygame.quit()
         
-    def get_string(self):
+    def get_string(self, line, centered=True):
         result = ""
+        
         getting_input = True
         while getting_input:
        
@@ -338,25 +337,62 @@ class Reversi:
                     else:
                         result = result + event.unicode
                         
-        print(f"result = '{result}'")
+                    self.draw_string(result, line, center=centered)
+                        
         return result
     
+    def draw_string(self, message, line, x = 0, center=False, mono=False):
+
+        if mono:
+            font = self.font_mono
+        else:
+            font = self.font
+            
+        text = font.render("X", True, self.text_color_black, self.game_background)
+        textSize = text.get_rect()
         
+        text = font.render(f"{message}", True, self.text_color_black, self.game_background)
+        textRect = text.get_rect()
+
+        if center:
+            textRect.center = (self.screen_width/2, textSize.height*line)
+        else:
+            textRect = (textSize.width*x, textSize.height*line)
+
+        self.screen.blit(text, textRect)
+        pygame.display.update()
+
+
     def get_name(self):
         self.screen.fill(self.game_background)
-        print("\nEnter your name: ", end='')
-        return self.get_string()
+        
+        line = 12
+        self.draw_string("Enter your name: ", line, center=True, mono=True)
+        
+        line += 2
+        return self.get_string(line)
+
 
     
     def get_table(self):
         self.screen.fill(self.game_background)
         tables = self.server.get_tables()
+ 
+        line = 2
+        self.draw_string(f"Table   Description", line, mono=True)
+        
+        line += 1
+        
         for table in tables:
-            print(f"{table['t']}\t\t{table['n']}")
+            
+            self.draw_string(f"{table['t']:15}{table['n']}", line, mono=True)
+            line += 1
+
+        line += 4
         
-        
-        print("\nEnter your table: ", end='')
-        return self.get_string()
+        self.draw_string("What table do you want to sit at?", line, center=True, mono=True)
+        line += 2  
+        return self.get_string(line, centered=True)
 
 if __name__ == '__main__':
     
