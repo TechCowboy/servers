@@ -7,7 +7,7 @@ import pygame
 
 ip     = "fujinet-vm"
 ip     = "FUJINET-VM.local"
-#ip 	   = "localhost"
+ip 	   = "localhost"
 
 
 # Local imports

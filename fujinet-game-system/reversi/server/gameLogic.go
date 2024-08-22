@@ -505,12 +505,12 @@ func (state *GameState) endGame(message string) {
 
 	log.Printf("*****Ending Game!*****\n")
 	if state.Players[0].Score > state.Players[1].Score {
-		result = fmt.Sprintf("%s WINS!", state.Players[0].Name)
+		result = fmt.Sprintf(" %s WINS!", state.Players[0].Name)
 	} else {
 		if state.Players[1].Score > state.Players[0].Score {
-			result = fmt.Sprintf("%s WINS!", state.Players[1].Name)
+			result = fmt.Sprintf(" %s WINS!", state.Players[1].Name)
 		} else {
-			result = "Tie Game!"
+			result = " Tie Game!"
 		}
 	}
 	state.gameOver = true
@@ -876,10 +876,8 @@ func (state *GameState) getValidMoves() []validMove {
 	var move validMove
 	var moves []validMove
 
-	moves = noMoveArray
-
 	if state.ActivePlayer == -1 {
-		return moves
+		return noMoveArray
 	}
 
 	if state.Players[state.ActivePlayer].color == CELL_BLACK {
@@ -966,7 +964,12 @@ func (state *GameState) getValidMoves() []validMove {
 		} // for col
 	} // for row
 
-	return moves
+	if len(moves) == 0 {
+		return noMoveArray
+	} else {
+		return moves
+	}
+
 }
 
 // Creates a copy of the state and modifies it to be from the
