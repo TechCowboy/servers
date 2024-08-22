@@ -26,9 +26,9 @@ DefSprPatTable  EQU     3800h
 	// 32 x 24
 
 unsigned char board[768];
-char query[50] = {""};
-char url[256];
-char message[32];
+char query[MAX_QUERY_SIZE] = {""};
+char url[MAX_URL];
+char message[MAX_QUERY_SIZE];
 char player1_color;
 char player2_color;
 char my_color;
@@ -73,11 +73,12 @@ int trig=1;
 int print_trace(char *message);
 
 
-char my_name[16] = { "TechCowboy" };
-char black_player[16];
-char white_player[16];
+char my_name[MAX_NAME_SIZE];
+char my_table[MAX_TABLE_SIZE];
+char black_player[MAX_NAME_SIZE];
+char white_player[MAX_NAME_SIZE];
 int turn;
-char b[64];
+char b[BOARD_SIZE*BOARD_SIZE];
 
 /* z88dk specific opt */
 #pragma printf = "%c %u"
@@ -777,6 +778,63 @@ void read_all_data(void)
 
 }
 
+int get_table_from_computer(char *table)
+{
+	int i;
+	char table[MAX_TABLE_SIZE];
+	char table_desc[MAX_TABLE_DESC_SIZE];
+	int selected = 2;
+
+	clrscr();
+	vdp_color(BACKGROUND_COLOUR_TEXT);
+
+	vdp_set_mode(mode_2);
+
+	snprintf(message, sizeof(message), "Waiting for connection...");
+	gotoxy(16 - strlen(message) / 2, 12);
+	cprintf(message);
+	get_tables();
+	while (!is_connected())
+	{
+		csleep(10);
+		get_tables();
+	}
+	clrscr();
+
+	
+	snprintf(message, sizeof(message), "Table");
+	gotoxy(16 - strlen(message) / 2, 3);
+	cprintf(message);
+
+	for(i=0; i<MAX_TABLES; i++)
+	{
+
+		get_table(i, table, table_desc);
+		if (strcmp(table, "") == 0)
+			break;
+
+		gotoxy(16 - (strlen(table_desc) +4 ) / 2, 7+i);
+		if (i == selected)
+			cprintf("--> ");
+		else
+			cprintf("    ");
+
+		cprintf(table_desc);
+
+	}
+
+	gets(table);
+	return 0;
+
+}
+
+void get_name_from_appkey(char *name)
+{
+	int i = rand();
+
+	sprintf(name, "Player%d", i);
+}
+
 int main()
 {
 	int column,row;
@@ -811,9 +869,11 @@ int main()
 	strncpy2(url, "http://FUJINET-VM.local:8080", sizeof(url));
 
 	reversi_init(url);
+	get_name_from_appkey(my_name);
 	set_name(my_name);
 
-	set_table("bot1a");
+	get_table_from_computer(my_table);
+	set_table(my_table);
 
 	do 
 	{

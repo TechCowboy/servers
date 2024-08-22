@@ -2,7 +2,7 @@
 #define IO_H
 
 // This allows me to run this on an emulator
-//#define NO_FUJI
+#define NO_FUJI
 
 #ifdef NO_FUJI
 

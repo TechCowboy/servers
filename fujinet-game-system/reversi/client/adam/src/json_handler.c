@@ -11,21 +11,23 @@
 
 unsigned char response[1024];
 
-#define BOARD_SIZE 8
 
 static char _url[256];
 static char _pieces[BOARD_SIZE*BOARD_SIZE+1];
-static char _last_result[256];
+static char _last_result[MAX_RESULT];
 static char _last_data[256];
-static char _table[128];
-static char _my_name[128];
+static char _table[MAX_TABLE_SIZE];
+static char _my_name[MAX_NAME_SIZE];
 static bool _connected = false;
 static int  _turn = -1;
-static char _players[2][128];
+static char _players[2][MAX_NAME_SIZE];
 static char _player_colors[2];
 static int  _active_player = -1;
 static int  _move_time = 0;
 static int  _valid_moves[BOARD_SIZE*BOARD_SIZE];
+
+static char _tables[MAX_TABLES][MAX_TABLE_SIZE];
+static char _tables_desc[MAX_TABLES][MAX_TABLE_DESC_SIZE];
 
 void debug_start(void);
 void debug_end(void);
@@ -49,9 +51,9 @@ int reversi_init(char *url_in)
     for (i = 0; i < 2; i++)
     {
 #ifdef NO_FUJI
-        snprintf(_players[i], 128, "NOFUJI%d", i+1);
+        snprintf(_players[i], MAX_NAME_SIZE, "NOFUJI%d", i+1);
 #else
-        snprintf(_players[i], 128, "FUJI%d", i + 1);
+        snprintf(_players[i], MAX_NAME_SIZE, "FUJI%d", i + 1);
 #endif
     }
 }
@@ -86,7 +88,7 @@ bool update_data(void)
     static bool first_time = true;
     bool data_change = false;
     int i, j, x, y, r;
-    char query[128];
+    char query[MAX_QUERY_SIZE];
 
 
     _connected = true;
@@ -207,7 +209,7 @@ bool update_data(void)
                 snprintf(response, sizeof(response), "Player%d", i);
 #endif
 
-                strncpy(_players[i], response, 128);
+                strncpy(_players[i], response, MAX_NAME_SIZE);
             }
 
             snprintf(query, sizeof(query), "/pl/%d/c", i);
@@ -362,4 +364,76 @@ bool is_valid_move(int column, int row)
 int get_remaining_time(void)
 {
     return _move_time;
+}
+
+void get_tables()
+{
+    int i, r;
+    char query[MAX_QUERY_SIZE];
+
+    for (i=0; i<MAX_TABLES; i++)
+    {
+        strcpy(_tables[i], "");
+        strcpy(_tables_desc[i], "");
+    }
+
+    _connected = false;
+    snprintf(response, sizeof(response), "%s/tables");
+    if (io_json_open(response) == 0)
+    {
+        for (i=0; i<MAX_TABLES; i++)
+        {
+            snprintf(query, sizeof(query), "/t/%d", i);
+
+            // table
+            if ((r = io_json_query(query, response, sizeof(response))) != 0)
+            {
+#ifdef NET_DIAGS
+                sound_negative_beep();
+                debug_start();
+                cprintf("%s\n", query);
+                debug_end();
+#endif
+            }
+            else
+            {
+#ifdef NO_FUJI
+                snprintf(response, sizeof(response), "table%d", i);
+#endif
+
+                strncpy(_tables[i], response, MAX_TABLE_SIZE);
+                _connected = true;
+            }
+
+            snprintf(query, sizeof(query), "/n/%d", i);
+
+            // players
+            if ((r = io_json_query(query, response, sizeof(response))) != 0)
+            {
+#ifdef NET_DIAGS
+                sound_negative_beep();
+                debug_start();
+                cprintf("%s\n", query);
+                debug_end();
+#endif
+            }
+            else
+            {
+#ifdef NO_FUJI
+                snprintf(response, sizeof(response), "table_desc%d", i);
+#endif
+
+                strncpy(_tables_desc[i], response, MAX_TABLE_DESC_SIZE);
+            }
+            return;
+        }
+        io_json_close();
+        return;
+    }
+}
+
+void get_table(int num, char *table, char *table_desc)
+{
+    strcpy(table, _tables[num]);
+    strcpy(table_desc, _tables_desc[num]);
 }
