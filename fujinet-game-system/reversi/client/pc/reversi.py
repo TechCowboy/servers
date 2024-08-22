@@ -7,7 +7,7 @@ import pygame
 
 ip     = "fujinet-vm"
 ip     = "FUJINET-VM.local"
-ip 	   = "localhost"
+#ip 	   = "localhost"
 
 
 # Local imports
@@ -77,20 +77,12 @@ class Reversi:
         player2Color = self.text_color_white
         player2backColor = self.game_background
         
+        active_player = self.server.get_active_player()
+
         self.screen.fill(self.game_background)
         
         # table
-        text = self.font.render(f"{self.table}", True, self.text_color_white, self.game_background)
-         
-        # create a rectangular object for the
-        # text surface object
-        textRect = text.get_rect()
-         
-        # set the center of the rectangular object.
-
-        text_rect = text.get_rect(center=(self.screen_width/2, textRect.height))
-        self.screen.blit(text, text_rect)
-
+        self.draw_string(f"{self.table}", 1, center=True, update=False, text_color=self.text_color_white, text_background=self.game_background)
         
         #********** player 1 name ************
 
@@ -102,88 +94,62 @@ class Reversi:
             player1Color = self.text_color_white
             player1backColor = self.game_background
  
-        if self.ap == 0:
-            text = self.font.render(self.server.get_name(0), True, player1backColor, player1Color)
+        if active_player == 0:
+            # inverse text for active player
+            text       = player1backColor
+            background = player1Color
         else:
-            text = self.font.render(self.server.get_name(0), True, player1Color, player1backColor)
-         
-        # create a rectangular object for the
-        # text surface object
-        textRect = text.get_rect()
-         
-        # set the center of the rectangular object.
-        textRect.center = (textRect.width, textRect.height)
-        self.screen.blit(text, textRect)
-
+            text       = player1Color
+            background = player1backColor
+            
+        # def draw_string(self, message, line, x = 0, center=False, mono=False, update=True, text_color=None, text_background=None):
+        self.draw_string(self.server.get_name(0), 0, text_color=text, text_background=background, update=False)
+        
         #********** player 2 name ************
         
         if self.server.get_color(1) == 'B':
-            player2Color = self.text_color_black
+            player2Color 	 = self.text_color_black
             player2backColor = self.game_background
 
         if self.server.get_color(1) == 'W':
-            player2Color = self.text_color_white
+            player2Color 	 = self.text_color_white
             player2backColor = self.game_background
 
-        
-        if self.ap == 1:
-            text = self.font.render(self.server.get_name(1), True, player2backColor, player2Color)
+        if active_player == 1:
+            text       = player2backColor
+            background = player2Color
         else:
-            text = self.font.render(self.server.get_name(1), True, player2Color, player2backColor)
-            
+            text       = player2Color
+            background = player2backColor
+        
+        # def draw_string(self, message, line, x = 0, center=False, mono=False, update=True, text_color=None, text_background=None):
+        self.draw_string(self.server.get_name(1), 0, text_color=text, text_background=background, update=False, right_justify=True)
 
-         
-        # create a rectangular object for the
-        # text surface object
-        textRect = text.get_rect()
-         
-        # set the center of the rectangular object.
-        textRect.center = (self.screen_width - textRect.width, textRect.height)
-        self.screen.blit(text, textRect)
 
         #********** message ************
-
-        text = self.font.render(self.server.get_last_result(), True, self.text_color_white, self.game_background)
-         
-        # create a rectangular object for the
-        # text surface object
-        textRect = text.get_rect()
-         
-        # set the center of the rectangular object.
-
-        text_rect = text.get_rect(center=(self.screen_width/2, textRect.height*2))
-        self.screen.blit(text, text_rect)
+        self.draw_string(self.server.get_last_result(), 2, text_color=self.text_color_black, text_background=self.game_background, update=False, center=True)
 
 
         #************** Print Timer
-
-        if self.ap >= 0:
-            text = self.font.render(f"{self.server.get_move_time()}", True, self.text_color_black, self.game_background)
-            score1 = self.font.render(f"{self.server.get_score(0)}", True, player1Color, self.game_background)
-            score2 = self.font.render(f"{self.server.get_score(1)}", True, player2Color, self.game_background)
-            textRect = text.get_rect()
-            scoreRect1 = score1.get_rect()
-            scoreRect2 = score2.get_rect()
-            if self.ap == 0:
-                textRect.center = (textRect.width, textRect.height*2)
+        if active_player >= 0:
+            if active_player == 0:
+                self.draw_string(f"{self.server.get_move_time():3}", 2, update=False)
             else:
-                textRect.center = (self.screen_width - textRect.width, textRect.height*2)
+                self.draw_string(f"{self.server.get_move_time():3}", 2, update=False, right_justify=True)
             
-            scoreRect1.center = (textRect.width, textRect.height*10)
-            scoreRect2.center = (self.screen_width - textRect.width, textRect.height*10)
-            self.screen.blit(text, textRect)
-            self.screen.blit(score1, scoreRect1)
-            self.screen.blit(score2, scoreRect2) 
+            self.draw_string(f"{self.server.get_score(0):3}", 10, update=False)           
+            self.draw_string(f"{self.server.get_score(1):3}", 10, update=False, right_justify=True)           
+            
 
         ''' Redraws the board '''
         self.redraw_lines()
         self.redraw_cells()
         
-        if self.server.get_name(self.ap) == self.myname:
+        if self.server.get_name(active_player) == self.myname:
             moves = self.server.get_valid_moves()
             self.draw_valid_moves(moves)
                     
-        pygame.display.update()
+        pygame.display.flip()
 
     def redraw_lines(self):
         ''' Redraws the board's lines '''
@@ -341,26 +307,38 @@ class Reversi:
                         
         return result
     
-    def draw_string(self, message, line, x = 0, center=False, mono=False):
+    def draw_string(self, message, line, x = 0, center=False, mono=False, update=True, text_color=None, text_background=None, right_justify=False):
+
+        if text_color == None:
+            text_color = self.text_color_black
+            
+        if text_background == None:
+            text_background = self.game_background
+                
 
         if mono:
             font = self.font_mono
         else:
             font = self.font
             
-        text = font.render("X", True, self.text_color_black, self.game_background)
+        text = font.render("X", True, text_color, text_background)
         textSize = text.get_rect()
         
-        text = font.render(f"{message}", True, self.text_color_black, self.game_background)
+        text = font.render(f"{message}", True, text_color, text_background)
         textRect = text.get_rect()
 
+        
         if center:
             textRect.center = (self.screen_width/2, textSize.height*line)
         else:
-            textRect = (textSize.width*x, textSize.height*line)
+            if right_justify:
+                textRect = (self.screen_width-textRect.width, textSize.height*line)
+            else:
+                textRect = (textSize.width*x, textSize.height*line)
 
         self.screen.blit(text, textRect)
-        pygame.display.update()
+        if update:
+            pygame.display.update()
 
 
     def get_name(self):
@@ -397,7 +375,7 @@ class Reversi:
 if __name__ == '__main__':
     
     
-    print(ip)
+    print(f"Your server is: {ip}")
     MY_GAME = Reversi(ip)
     myname  = MY_GAME.get_name()
     print(f"Your name is: {myname}") 
