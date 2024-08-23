@@ -103,13 +103,11 @@ class json_handler:
     
     
     def get_color(self, player_num):
-        if self.json_data == None:
-            return '.'
 
-        if len(self.json_data[self.key_players]) > player_num-1:
-            return '.'
-        else:
+        try:            
             return self.json_data[self.key_players][player_num][self.key_color]
+        except:
+            return "."
             
     def get_playing(self, player_num):
         if self.json_data == None:

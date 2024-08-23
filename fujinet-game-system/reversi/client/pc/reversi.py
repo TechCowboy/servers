@@ -64,6 +64,7 @@ class Reversi:
         self.game_background  = (0,  255,  0)
         self.text_color_black = (0,    0,  0)
         self.text_color_white = (255,255,255)
+        self.inactive_player  = (128,128,128)
         
         # the fonts used
         self.font 		= pygame.font.SysFont('sans', 32, bold=True)
@@ -75,12 +76,26 @@ class Reversi:
         
         pygame.display.update()
         
+    def set_player_color(self, player_num):
+        player      = self.server.get_color(player_num)
+        playerColor = self.inactive_player
+        
+        if player == 'B':
+            playerColor = self.text_color_black
+        if player == 'W':
+            playerColor = self.text_color_white
+        
+        return playerColor
+        
     
     def redraw_board(self):
         # just to always insure variables are initialized
-        player1Color     = self.text_color_black
+        player1 = 0
+        player2 = 1
+        
+        player1Color     = self.set_player_color(player1)
         player1backColor = self.game_background
-        player2Color     = self.text_color_white
+        player2Color     = self.set_player_color(player2)
         player2backColor = self.game_background
         
         # find out who is playing -1=no one, 0=player 1, 1=player2
@@ -95,17 +110,7 @@ class Reversi:
         
         #********** player 1 ************
 
-
-        # determine our colour
-        if self.server.get_color(0) == 'B':
-            player1Color = self.text_color_black
-            player1backColor = self.game_background
-
-        if self.server.get_color(0) == 'W':
-            player1Color = self.text_color_white
-            player1backColor = self.game_background
- 
-        if active_player == 0:
+        if active_player == player1:
             # inverse text for active player
             text       = player1backColor
             background = player1Color
@@ -115,20 +120,11 @@ class Reversi:
             background = player1backColor
 
         # print out name on the first line
-        self.draw_string(self.server.get_name(0), 0, text_color=text, text_background=background, update=False)
+        self.draw_string(self.server.get_name(player1), 0, text_color=text, text_background=background, update=False)
         
         #********** player 2 ************
         
-        # determine our colour
-        if self.server.get_color(1) == 'B':
-            player2Color 	 = self.text_color_black
-            player2backColor = self.game_background
-
-        if self.server.get_color(1) == 'W':
-            player2Color 	 = self.text_color_white
-            player2backColor = self.game_background
-
-        if active_player == 1:
+        if active_player == player2:
             # inverse for active player
             text       = player2backColor
             background = player2Color
@@ -138,7 +134,7 @@ class Reversi:
             background = player2backColor
 
         # print the name on the first line, but right justified
-        self.draw_string(self.server.get_name(1), 0, text_color=text, text_background=background,
+        self.draw_string(self.server.get_name(player2), 0, text_color=text, text_background=background,
                          update=False, right_justify=True)
 
 
@@ -149,7 +145,7 @@ class Reversi:
         #************** Print Timer
         if active_player >= 0:
             # someone is active
-            if active_player == 0:
+            if active_player == player1:
                 # print the timer on the left side of screen
                 self.draw_string(f"{self.server.get_move_time():3}", 2, update=False)
             else:
@@ -158,8 +154,8 @@ class Reversi:
             
 
         # print the scores
-        self.draw_string(f"{self.server.get_score(0):3}", 10, update=False)           
-        self.draw_string(f"{self.server.get_score(1):3} ", 10, update=False, right_justify=True)           
+        self.draw_string(f"{self.server.get_score(player1):3}", 10, update=False)           
+        self.draw_string(f"{self.server.get_score(player2):3} ", 10, update=False, right_justify=True)           
             
 
         # Redraws the board 
