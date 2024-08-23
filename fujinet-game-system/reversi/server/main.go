@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+
 	//"crypto/rand"
 	"log"
 	"net"
@@ -307,9 +307,9 @@ func initializeTables() {
 	// For client developers, create hidden tables for each # of bots (for ease of testing with a specific # of players in the game)
 	// These will not update the lobby
 
-	for i := 1; i < 8; i++ {
-		createTable(fmt.Sprintf("Dev Room - %d bots", i), fmt.Sprintf("dev%d", 2), 2, false)
-	}
+	//for i := 1; i < 8; i++ {
+	//	createTable(fmt.Sprintf("Dev Room - %d bots", i), fmt.Sprintf("dev%d", 2), 2, false)
+	//}
 
 }
 
