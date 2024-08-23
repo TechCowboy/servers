@@ -269,6 +269,16 @@ class Reversi:
             # return the mouse position if clicked
             # done will equal false if the close button is clicked
             done, mouse_pos = event_handler()
+            # was the mouse clicked?
+            if mouse_pos != (-1,-1):
+                # calculate the row and column and draw a grey circle
+                row = (int) ((mouse_pos[0] - self.game_offset_x) / self.col_multiplier)
+                col = (int) ((mouse_pos[1] - self.game_offset_y) / self.row_multiplier)
+                self.draw_click(row,col)
+                
+                # if it was a valid move, then send it to the server.
+                if self.server.is_valid_move(row,col):
+                    self.server.put_move(row,col)
             
             # get the data from the server
             data_change = self.server.refresh_data()
@@ -294,16 +304,7 @@ class Reversi:
                         
             self.redraw_board()
             
-            # was the mouse clicked?
-            if mouse_pos != (-1,-1):
-                # calculate the row and column and draw a grey circle
-                row = (int) ((mouse_pos[0] - self.game_offset_x) / self.col_multiplier)
-                col = (int) ((mouse_pos[1] - self.game_offset_y) / self.row_multiplier)
-                self.draw_click(row,col)
-                
-                # if it was a valid move, then send it to the server.
-                if self.server.is_valid_move(row,col):
-                    self.server.put_move(row,col)
+            
             
             time.sleep(1)
             
