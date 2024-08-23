@@ -1046,16 +1046,17 @@ func (state *GameState) createClientState() *GameState {
 				selected_move = 0
 			}
 
-			if selected_move < len(weighted_moves) {
+			// really be sure that we can force the move
+			if len(weighted_moves) > 0 {
 				log.Printf("%d Force %s to moved: %s", selected_move, state.Players[state.ActivePlayer].Name, weighted_moves[selected_move].Name)
 				state.performMove(weighted_moves[selected_move].Move)
 			} else {
 				log.Printf("No weighted move - force pass.")
-				state.LastResult = "Player has no move"
+				state.LastResult = "No weighted moves"
 			}
 		} else {
 			log.Printf("Force pass")
-			state.LastResult = "Player has no move"
+			state.LastResult = fmt.Sprintf("%s has no move", state.Players[state.ActivePlayer].Name)
 		}
 		state.nextValidPlayer()
 	}

@@ -10,21 +10,22 @@ import (
 )
 
 const (
-	//LOBBY_ENDPOINT_UPSERT = "http://127.0.0.1:8080/server"
+	LOBBY_ENDPOINT_UPSERT = "http://127.0.0.1:8080/server"
 	//LOBBY_ENDPOINT_UPSERT = "http://lobby.rogersm.net:8080/server"
-	LOBBY_ENDPOINT_UPSERT = "http://lobby.fujinet.online/server"
+	//LOBBY_ENDPOINT_UPSERT = "http://lobby.fujinet.online/server"
 )
 
 // Defaults for this game server
 // Appkey/game are hard coded, but the others could be read from a config file
 var DefaultGameServerDetails = GameServer{
 	Appkey:    1,
-	Game:      "5 Card Stud",
+	Game:      "Reversi",
 	Region:    "us",
-	Serverurl: "https://5card.carr-designs.com/",
+	Serverurl: "https://localhost/",
 	Clients: []GameClient{
-		{Platform: "atari", Url: "tnfs://ec.tnfs.io/atari/5card.xex"},
-		{Platform: "apple2", Url: "tnfs://ec.tnfs.io/atari/5card.po"},
+		{Platform: "atari", Url: "tnfs://tnfs.local/atari/fnreversi.xex"},
+		{Platform: "apple2", Url: "tnfs://tnfs.local/apple/fnreversi.po"},
+		{Platform: "adam", Url: "tnfs://tnfs.local/adam/fnreversi.ddp"},
 	},
 }
 

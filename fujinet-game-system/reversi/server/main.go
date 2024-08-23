@@ -1,23 +1,18 @@
 package main
 
 import (
-	//"fmt"
+	"fmt"
 	//"crypto/rand"
 	"log"
+	"net"
 	"os"
 	"strings"
 	"sync"
 	"time"
-	"net"
 
 	"github.com/gin-gonic/gin"
 )
 
-/*
-http://localhost:8080/tables
-http://localhost:8080/state?table=bot2c&player=TechCowboy
-
-*/
 // This started as a sync.Map but could revert back to a map since a keyed mutex is being used
 // to restrict state reading/setting to one thread at a time
 var stateMap sync.Map
@@ -71,7 +66,6 @@ func main() {
 	router.GET("/tables", apiTables)
 	router.GET("/updateLobby", apiUpdateLobby)
 
-
 	//	router.GET("/REFRESHLOBBY", apiRefresh)
 
 	initializeGameServer()
@@ -82,26 +76,26 @@ func main() {
 	if err != nil {
 
 	}
-	
+
 	for _, i := range ifaces {
-    	addrs, err := i.Addrs()
+		addrs, err := i.Addrs()
 		// handle err
 		if err != nil {
 
 		}
-    	
-    	for _, addr := range addrs {
-        	var ip net.IP
-        	switch v := addr.(type) {
-        		case *net.IPNet:
-                	ip = v.IP
-        		case *net.IPAddr:
-                	ip = v.IP
-        	}
-        // process IP address
-		log.Printf("%s\n", ip.String())
-    }
-}
+
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			// process IP address
+			log.Printf("%s\n", ip.String())
+		}
+	}
 
 	router.Run(":" + port)
 }
@@ -120,8 +114,6 @@ func main() {
 // 2. Serialize and return results
 
 // Executes a move for the client player, if that player is currently active
-
-
 
 func apiMove(c *gin.Context) {
 
@@ -305,16 +297,19 @@ func initializeTables() {
 	// Create the real servers (hard coded for now)
 	createTable("The Green Door", "green", 0, true)
 	createTable("The Enlighted", "enlighted", 0, true)
-	createTable("Bot Room A - 1 bot", "bot1a", 1, true)
-	createTable("Bot Room B - 1 bot", "bot2b", 1, true)
+	createTable("Ones Who Knock", "knock", 0, true)
+	createTable("Orange Portal", "orange", 0, true)
+	createTable("Blue Portal", "blue", 0, true)
 	createTable("Bot Room C - 1 bot", "bot2c", 1, true)
+	createTable("Bot Room B - 1 bot", "bot2b", 1, true)
+	createTable("Bot Room A - 1 bot", "bot1a", 1, true)
 
 	// For client developers, create hidden tables for each # of bots (for ease of testing with a specific # of players in the game)
 	// These will not update the lobby
 
-	//for i := 1; i < 8; i++ {
-	//	createTable(fmt.Sprintf("Dev Room - %d bots", i), fmt.Sprintf("dev%d", 2), 2, false)
-	//}
+	for i := 1; i < 8; i++ {
+		createTable(fmt.Sprintf("Dev Room - %d bots", i), fmt.Sprintf("dev%d", 2), 2, false)
+	}
 
 }
 
