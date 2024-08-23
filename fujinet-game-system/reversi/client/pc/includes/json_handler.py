@@ -131,7 +131,14 @@ class json_handler:
             return self.json_data[self.key_active_player]
     
     def get_score(self, player_num):
-        return  self.json_data[self.key_players][player_num][self.key_score]
+        if self.json_data == None:
+            score = 0
+        else:
+            try:
+                score = self.json_data[self.key_players][player_num][self.key_score]
+            except:
+                score = 0
+        return score
     
     def get_valid_moves(self):
         valid_moves = None
