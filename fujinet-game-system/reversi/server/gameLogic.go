@@ -226,20 +226,20 @@ func (state *GameState) calc_score() {
 	for j := 0; j < len(state.Players); j++ {
 		player := &state.Players[j]
 		if player.Score == 0 {
-			display_board(state)
+			state.display_board()
 			log.Printf("player %d (%s) has no pieces!  **** gameOver***", j, player.Color)
 			state.endGame("No pieces to play")
 		}
 	}
 
 	if all_total == BOARD_SIZE*BOARD_SIZE {
-		display_board(state)
+		state.display_board()
 		log.Printf("all_total:%d **** gameOver***", all_total)
 		state.endGame("")
 	}
 }
 
-func display_board(state *GameState) {
+func (state *GameState) display_board() {
 
 	var board string
 
@@ -276,15 +276,17 @@ func display_board(state *GameState) {
 
 }
 
-func display_moves(state *GameState, validMoves []validMove) {
+func (state *GameState) display_moves() {
 
-	if state.Players[state.ActivePlayer].color == CELL_BLACK {
-		log.Printf("\nMoves for Black\n")
-	} else {
-		log.Printf("\nMoves for White\n")
+	if state.ActivePlayer >= 0 {
+		if state.Players[state.ActivePlayer].color == CELL_BLACK {
+			log.Printf("\nMoves for Black\n")
+		} else {
+			log.Printf("\nMoves for White\n")
+		}
 	}
 
-	if len(validMoves) == 0 {
+	if len(state.ValidMoves) == 0 {
 		log.Printf("*******************************************\n")
 		log.Printf("************* NO MOVES ********************\n")
 		log.Printf("*******************************************\n")
@@ -307,8 +309,8 @@ func display_moves(state *GameState, validMoves []validMove) {
 				}
 
 				if state.board[pos].cell == CELL_EMPTY {
-					for i := 0; i < len(validMoves); i++ {
-						tempPos, e := strconv.Atoi(validMoves[i].Move)
+					for i := 0; i < len(state.ValidMoves); i++ {
+						tempPos, e := strconv.Atoi(state.ValidMoves[i].Move)
 						if e != nil {
 							log.Printf("Conversion error")
 						}
@@ -1001,9 +1003,7 @@ func (state *GameState) createClientState() *GameState {
 	state.ValidMoves = state.getValidMoves()
 
 	log.Printf("valid moves")
-	for i := 0; i < len(state.ValidMoves); i++ {
-		log.Printf("%s %s", state.ValidMoves[i].Move, state.ValidMoves[i].Name)
-	}
+	state.display_moves()
 
 	if len(state.ValidMoves) == 0 {
 		if !state.noMoves {
