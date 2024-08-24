@@ -189,6 +189,7 @@ class Reversi:
         
     # Redraws all the occupied cells in the board 
     def redraw_cells(self):
+        print(self.board)
         
         for row in range(self._rows):
             for col in range(self._cols):
@@ -201,21 +202,21 @@ class Reversi:
         
         if self.board[row * 8 + col] == 'B':
             pygame.draw.circle(self.screen, (0, 0, 0),
-                               (row * self.row_multiplier + (self.col_multiplier/2) + self.game_offset_x,
-                                col * self.col_multiplier + (self.row_multiplier/2) + self.game_offset_y),
+                               (col * self.col_multiplier + (self.col_multiplier/2) + self.game_offset_x,
+                                row * self.row_multiplier + (self.row_multiplier/2) + self.game_offset_y),
                                 self.row_multiplier/2-2)
         else:
             pygame.draw.circle(self.screen, (255, 255, 255),
-                               (row * self.row_multiplier + (self.col_multiplier/2) + self.game_offset_x,
-                                col * self.col_multiplier + (self.col_multiplier/2) + self.game_offset_y),
-                                self.col_multiplier/2-2)
+                               (col * self.col_multiplier + (self.col_multiplier/2) + self.game_offset_x,
+                                row * self.row_multiplier + (self.row_multiplier/2) + self.game_offset_y),
+                                self.row_multiplier/2-2)
 
     # show a grey circle where we clicked
     def draw_click(self, row, col):
         
         pygame.draw.circle(self.screen, (128, 128, 128),
-                           (row * self.row_multiplier + (self.col_multiplier/2) + self.game_offset_x,
-                            col * self.col_multiplier + (self.row_multiplier/2) + self.game_offset_y),
+                           (col * self.col_multiplier + (self.col_multiplier/2) + self.game_offset_x,
+                            row * self.row_multiplier + (self.row_multiplier/2) + self.game_offset_y),
                             self.row_multiplier/2-2)
         pygame.display.update()
  
@@ -231,9 +232,9 @@ class Reversi:
             row = pos // 8
             col = pos - row * 8
             pygame.draw.circle(self.screen, (128, 128, 128),
-                               (row * self.row_multiplier + (self.col_multiplier/2) + self.game_offset_x,
-                                col * self.col_multiplier + (self.col_multiplier/2) + self.game_offset_y),
-                                self.col_multiplier/2-2, 2)
+                               (col * self.col_multiplier + (self.col_multiplier/2) + self.game_offset_x,
+                                row * self.row_multiplier + (self.row_multiplier/2) + self.game_offset_y),
+                                self.row_multiplier/2-2, 2)
         pygame.display.update()
     
     
@@ -272,8 +273,9 @@ class Reversi:
             # was the mouse clicked?
             if mouse_pos != (-1,-1):
                 # calculate the row and column and draw a grey circle
-                row = (int) ((mouse_pos[0] - self.game_offset_x) / self.col_multiplier)
-                col = (int) ((mouse_pos[1] - self.game_offset_y) / self.row_multiplier)
+                row = (int) ((mouse_pos[1] - self.game_offset_y) / self.row_multiplier)
+                col = (int) ((mouse_pos[0] - self.game_offset_x) / self.col_multiplier)
+
                 self.draw_click(row,col)
                 
                 # if it was a valid move, then send it to the server.

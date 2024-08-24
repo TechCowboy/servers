@@ -26,8 +26,8 @@ const FIRST_TURN = 1
 const ANONYMOUS_CLIENT = -1
 
 const MOVE_TIME_GRACE_SECONDS = 60
-const BOT_TIME_LIMIT = time.Second * time.Duration(5)
-const PLAYER_TIME_LIMIT = time.Second * time.Duration(60)
+const BOT_TIME_LIMIT = time.Second * time.Duration(3)
+const PLAYER_TIME_LIMIT = time.Second * time.Duration(300)
 
 const ENDGAME_TIME_LIMIT = time.Second * time.Duration(39)
 const NEW_ROUND_FIRST_PLAYER_BUFFER = time.Second * time.Duration(1)
@@ -250,12 +250,12 @@ func (state *GameState) display_board() {
 	} else {
 		colour = "Black"
 	}
-	board = fmt.Sprintf("\nBoard: Turn %2d, %s to move\n 12345678\n", state.Turn, colour)
+	board = fmt.Sprintf("\nBoard: Turn %2d, %s to move\n 01234567\n", state.Turn, colour)
 	pos := 0
 
-	for y := 0; y < BOARD_SIZE; y++ {
-		board = board + strconv.Itoa(y+1)
-		for x := 0; x < BOARD_SIZE; x++ {
+	for row := 0; row < BOARD_SIZE; row++ {
+		board = board + strconv.Itoa(row)
+		for col := 0; col < BOARD_SIZE; col++ {
 			board_piece := "."
 
 			if state.board[pos].cell == CELL_BLACK {
@@ -272,7 +272,7 @@ func (state *GameState) display_board() {
 		board = board + "\n"
 	}
 
-	log.Printf("%s 12345678", board)
+	log.Printf("%s 01234567", board)
 
 }
 
@@ -524,50 +524,6 @@ func (state *GameState) endGame(message string) {
 
 }
 
-func (state *GameState) botMove() {
-
-	if state.Players[state.ActivePlayer].Status == STATUS_PLAYING {
-		moves := state.getValidMoves()
-
-		// If this is a bot, pick the best move using some simple logic (sometimes random)
-		if state.Players[state.ActivePlayer].isBot {
-			log.Printf("Active Player isBot\n")
-			if len(moves) > 0 {
-				log.Printf("Forcing Move")
-				max := big.NewInt(int64(len(moves) + 5))
-
-				// Get a randome number between 0 and "moves"+5
-
-				rand_move, err := rand.Int(rand.Reader, max)
-
-				if err != nil {
-					rand_move = big.NewInt(0)
-				}
-
-				rand_str := rand_move.String()
-				rand_int, err := strconv.Atoi(rand_str)
-
-				// subtract 5 so the rand is 0 and moves
-
-				rand_int -= 5
-
-				if err != nil {
-					rand_int = 0
-				}
-
-				// clamp it to zero so that it's more likely to take the best move
-				// which is index 0
-
-				if rand_int < 0 {
-					rand_int = 0
-				}
-
-				state.performMove(moves[rand_int].Move)
-			}
-		}
-	}
-}
-
 // ********************************************************************************
 // Emulates simplified player/logic for REVERSI
 // ********************************************************************************
@@ -622,7 +578,7 @@ func (state *GameState) runGameLogic() {
 
 	// If only one player is left, just end the game now
 	if playersLeft == 1 {
-		log.Printf("********* playersLeft == 1\n")
+		log.Printf("********* Only one player ************\n")
 		state.endGame("Player Left - ")
 		return
 	}
@@ -761,6 +717,7 @@ func (state *GameState) performMove(move string, internalCall ...bool) bool {
 	state.ApplyMove(row, col, player.color)
 	state.calc_score()
 	state.Turn++
+	state.display_board()
 
 	return true
 }
@@ -1002,12 +959,12 @@ func (state *GameState) createClientState() *GameState {
 
 	state.ValidMoves = state.getValidMoves()
 
-	log.Printf("valid moves")
-	state.display_moves()
-
 	if len(state.ValidMoves) == 0 {
 		if !state.noMoves {
 			state.noMoves = true
+			if state.ActivePlayer >= 0 {
+				state.LastResult = fmt.Sprintf("%s has no moves", state.Players[state.ActivePlayer].Name)
+			}
 			state.moveExpires = time.Now().Add(NO_MOVE_TIME)
 			state.MoveTime = int(time.Until(state.moveExpires).Seconds())
 		}
@@ -1039,7 +996,7 @@ func (state *GameState) createClientState() *GameState {
 
 			selected_move = selected_move - 5
 
-			if selected_move > len(weighted_moves) {
+			if selected_move >= len(weighted_moves) {
 				selected_move = len(weighted_moves) - 1
 			}
 			if selected_move < 0 {
@@ -1048,6 +1005,7 @@ func (state *GameState) createClientState() *GameState {
 
 			// really be sure that we can force the move
 			if len(weighted_moves) > 0 {
+				log.Printf("active player: %d  selected move: %d len(weighted): %d", state.ActivePlayer, selected_move, len(weighted_moves))
 				log.Printf("%d Force %s to moved: %s", selected_move, state.Players[state.ActivePlayer].Name, weighted_moves[selected_move].Name)
 				state.performMove(weighted_moves[selected_move].Move)
 			} else {
