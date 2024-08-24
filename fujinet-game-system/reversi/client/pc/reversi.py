@@ -189,7 +189,6 @@ class Reversi:
         
     # Redraws all the occupied cells in the board 
     def redraw_cells(self):
-        print(self.board)
         
         for row in range(self._rows):
             for col in range(self._cols):

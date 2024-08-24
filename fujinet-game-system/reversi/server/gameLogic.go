@@ -245,12 +245,16 @@ func (state *GameState) display_board() {
 
 	var colour string
 
-	if state.Players[state.ActivePlayer].color == CELL_BLACK {
-		colour = "White"
+	if state.ActivePlayer >= 0 {
+		if state.Players[state.ActivePlayer].color == CELL_BLACK {
+			colour = "White"
+		} else {
+			colour = "Black"
+		}
+		board = fmt.Sprintf("\nBoard: Turn %2d, %s to move\n 01234567\n", state.Turn, colour)
 	} else {
-		colour = "Black"
+		board = fmt.Sprintf("\nBoard: Turn %2d\n 01234567\n", state.Turn)
 	}
-	board = fmt.Sprintf("\nBoard: Turn %2d, %s to move\n 01234567\n", state.Turn, colour)
 	pos := 0
 
 	for row := 0; row < BOARD_SIZE; row++ {
