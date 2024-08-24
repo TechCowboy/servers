@@ -280,6 +280,7 @@ class Reversi:
                 # if it was a valid move, then send it to the server.
                 if self.server.is_valid_move(row,col):
                     self.server.put_move(row,col)
+                    
             
             # get the data from the server
             data_change = self.server.refresh_data()
@@ -304,8 +305,6 @@ class Reversi:
                 last_board = self.board
                         
             self.redraw_board()
-            
-            
             
             time.sleep(1)
             
