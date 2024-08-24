@@ -1021,6 +1021,7 @@ func (state *GameState) createClientState() *GameState {
 			state.LastResult = fmt.Sprintf("%s has no move", state.Players[state.ActivePlayer].Name)
 		}
 		state.nextValidPlayer()
+		state.ValidMoves = state.getValidMoves()
 	}
 	// Compute hash - this will be compared with an incoming hash. If the same, the entire state does not
 	// need to be sent back. This speeds up checks for change in state
