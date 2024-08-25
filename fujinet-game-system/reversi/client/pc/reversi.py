@@ -138,8 +138,6 @@ class Reversi:
                          update=False, right_justify=True)
 
 
-        #********** message ************
-        self.draw_string(self.server.get_last_result(), 2, text_color=self.text_color_black, text_background=self.game_background, update=False, center=True)
 
 
         #************** Print Timer
@@ -168,6 +166,9 @@ class Reversi:
             moves = self.server.get_valid_moves()
             self.draw_valid_moves(moves)
         
+        #********** message ************
+        self.draw_string(self.server.get_last_result(), 20, text_color=self.text_color_black, text_background=self.game_background, update=False, center=True)
+
         # display everything we're drawn
         pygame.display.flip()
 
@@ -287,7 +288,8 @@ class Reversi:
             
             if not self.server.connected:
                 print(f"{self.url} is down.")
-                break
+                continue
+                #break
             
             # if the data hasn't changed since we last
             # called, don't do anything

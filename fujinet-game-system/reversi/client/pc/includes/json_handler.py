@@ -33,12 +33,12 @@ class json_handler:
         
     def set_players(self, players):
         request = self.url+"/state?count="+str(players)+"&table="+self.table
-        requests.get(request)
+        requests.get(request, timeout=5)
         
     def get_tables(self):
         try:
             request = self.url+"/tables"
-            response = requests.get(request)
+            response = requests.get(request, timeout=5)
             self.table_data = json.loads(response.text)
             self.connected = True
         except Exception as e:
@@ -49,7 +49,7 @@ class json_handler:
     def refresh_data(self):
         try:
             request = self.url+"/state?player="+self.my_name+"&table="+self.table
-            response = requests.get(request)
+            response = requests.get(request, timeout=5)
             self.json_data = json.loads(response.text)
             self.data_change = not (self.last_data == response.text)
             self.last_data = response.text;
@@ -78,7 +78,7 @@ class json_handler:
         action = f":\"{row*8+col}\""
         try:
             request = self.url+"/move/"+action+"?player="+self.my_name+"&table="+self.table
-            response = requests.get(request)
+            response = requests.get(request, timeout=5)
             self.json_action_data = json.loads(response.text)
             self.connected = True
         except:
